@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1773955514">
-<link rel="stylesheet" href="shared/reader.css?v=1773955514">
+<link rel="stylesheet" href="shared/theme.css?v=1776446927">
+<link rel="stylesheet" href="shared/reader.css?v=1776446927">
 </head>
 <body>
 
@@ -136,13 +136,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1773955514"></script>
-<script src="shared/sync.js?v=1773955514"></script>
-<script src="shared/pdf-viewer.js?v=1773955514"></script>
-<script src="shared/notes-panel.js?v=1773955514"></script>
-<script src="shared/folder-manager.js?v=1773955514"></script>
-<script src="shared/panel-manager.js?v=1773955514"></script>
-<script src="shared/close-reading.js?v=1773955514"></script>
+<script src="shared/utils.js?v=1776446927"></script>
+<script src="shared/sync.js?v=1776446927"></script>
+<script src="shared/pdf-viewer.js?v=1776446927"></script>
+<script src="shared/notes-panel.js?v=1776446927"></script>
+<script src="shared/folder-manager.js?v=1776446927"></script>
+<script src="shared/panel-manager.js?v=1776446927"></script>
+<script src="shared/close-reading.js?v=1776446927"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -431,17 +431,21 @@ async function uploadPdfToGist(paperId, blob) {
   }
   try {
     var b64 = await _blobToBase64(blob);
-    console.log("[pdf-sync] Uploading PDF for " + paperId + " (" + (b64.length / 1024 / 1024).toFixed(1) + " MB b64)");
+    var mb = (b64.length / 1024 / 1024).toFixed(1);
+    console.log("[pdf-sync] Uploading PDF for " + paperId + " (" + mb + " MB b64)");
 
     var paper = PAPERS.find(function(p) { return p.id === paperId; });
+    var isUpdate = !!(paper && paper.pdfGistId);
+    var finalGistId = "";
 
     // 如果已有 pdfGistId，更新现有 Gist
-    if (paper && paper.pdfGistId) {
+    if (isUpdate) {
       await ghAPI("https://api.github.com/gists/" + paper.pdfGistId, {
         method: "PATCH",
         body: JSON.stringify({ files: { "pdf.b64": { content: b64 } } })
       });
-      console.log("[pdf-sync] ✅ Updated existing PDF gist: " + paper.pdfGistId);
+      finalGistId = paper.pdfGistId;
+      console.log("[pdf-sync] ✅ Updated existing PDF gist: " + finalGistId);
     } else {
       // 创建新的 PUBLIC Gist（public=true 解决 raw_url CORS 问题）
       var gist = await ghAPI("https://api.github.com/gists", {
@@ -458,13 +462,16 @@ async function uploadPdfToGist(paperId, blob) {
         paper.updatedAt = Date.now();
         savePapers(PAPERS);
       }
-      console.log("[pdf-sync] ✅ Created PDF gist: " + gist.id);
+      finalGistId = gist.id;
+      console.log("[pdf-sync] ✅ Created PDF gist: " + finalGistId);
     }
 
     // 清理旧方案（主 Gist 里的 fsi_pdf_xxx.b64 文件）
     _cleanupOldPdfFile(paperId);
 
-    showToast("☁️ PDF 已同步到云端");
+    // Toast 明确显示 gist id 前 8 位，方便 F12 / gist.github.com 核对
+    var shortId = finalGistId ? finalGistId.slice(0,8) : "?";
+    showToast("☁️ PDF 已" + (isUpdate ? "更新" : "上传") + " · " + mb + "MB · gist:" + shortId + "…");
   } catch(e) {
     console.warn("[pdf-sync] Upload failed:", e);
     showToast("⚠ PDF 云端同步失败: " + e.message, 4000);
@@ -1049,6 +1056,7 @@ function renderPaperDetail(id) {
     ' <button class="btn" style="margin-left:8px" onclick="openEditPaperModal(\''+p.id+'\')">✏️ 编辑</button>'+
     ' <button class="btn" onclick="window.open(\'https://scholar.google.com/scholar?q=\'+encodeURIComponent(\''+esc(p.title).replace(/'/g,"\\'")+'\'),\'_blank\')">🎓 Cite</button>'+
     (hasPdf ? ' <button class="btn" onclick="downloadPdf(\''+p.id+'\')">📥 下载PDF</button>' : '') +
+    (hasPdf ? ' <button class="btn" onclick="resetPaperPdf(\''+p.id+'\')" title="清除本论文的 PDF 关联，以便重新上传（不会删除云端 gist）">🔄 重置PDF</button>' : '') +
     ' <button class="btn danger" onclick="deletePaper(\''+p.id+'\')">🗑 删除</button></div>';
   if (p.tags && p.tags.length) html += '<div class="tag-row">'+p.tags.map(t=>'<span class="tag-pill">'+esc(t)+'</span>').join("")+'</div>';
   // Category tags + reading level + reading reason (all in one row)
@@ -1308,7 +1316,12 @@ async function handleViewerPdf(file) {
     // Upload PDF to Gist FIRST, then push metadata — so other devices
     // won't see hasPdf=true before the PDF file actually exists in Gist
     await uploadPdfToGist(paperId, blob);
-    debouncedPush("关联PDF");
+    // 关联 PDF 是关键单次操作，用 flushPush 跳过 3s debounce，避免切 tab / 关页面导致 push 丢失
+    if (typeof flushPush === "function") {
+      try { await flushPush("关联PDF"); } catch(e) { /* toast 已在 uploadPdfToGist / flushPush 内部处理 */ }
+    } else {
+      debouncedPush("关联PDF");
+    }
   } catch(e) { showToast("❌ "+e.message); }
 }
 
@@ -1384,6 +1397,54 @@ function deletePaper(id) {
   deletePdfBlob(id); deletePdfFromGist(id); PAPERS=PAPERS.filter(p=>p.id!==id); savePapers(PAPERS); window._PAPERS_REF=PAPERS;
   if(currentPaperId===id){currentPaperId=null;renderWelcome();}
   FolderManager.renderFolderTree(PAPERS); renderPaperList(); updateStats(); showToast("已删除"); debouncedPush("删除论文");
+}
+
+/**
+ * 重置本论文的 PDF 关联（保留论文条目和笔记）
+ * 用途：清掉遗留的 pdfUrl（指向 GitHub Pages /papers/ 的 legacy 字段），或本地缓存错乱时强制刷新。
+ * 不会删除云端 PDF gist（若需彻底删除，请用【🗑 删除】整篇）。
+ */
+async function resetPaperPdf(paperId) {
+  var p = PAPERS.find(x => x.id === paperId);
+  if (!p) return;
+  var hasLegacyUrl = !!p.pdfUrl;
+  var hasCloudGist = !!p.pdfGistId;
+  var msg = "重置本论文的 PDF 关联？\n\n将执行：\n"
+    + "• 清空 pdfUrl" + (hasLegacyUrl ? " （当前: " + p.pdfUrl + "）" : "") + "\n"
+    + "• 清空 pdfGistId" + (hasCloudGist ? " （当前 gist: " + p.pdfGistId.slice(0,10) + "…）" : "") + "\n"
+    + "• 清本地 IndexedDB 缓存\n"
+    + "• 论文条目和笔记保留不变\n\n"
+    + "完成后会出现【📂 点击或拖拽 PDF】上传区，可传入新 PDF。\n"
+    + (hasCloudGist ? "注意：云端 PDF gist 不会被删除（可去 gist.github.com 手动清）。\n\n" : "\n")
+    + "确定继续？";
+  if (!confirm(msg)) return;
+  try {
+    // 1. 清本地 IndexedDB blob（幂等，没有也不报错）
+    await deletePdfBlob(paperId);
+    // 2. 清元数据字段
+    p.pdfUrl = "";
+    p.pdfGistId = "";
+    p.hasPdf = false;
+    p.updatedAt = Date.now();
+    savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+    // 3. 重新渲染（会触发 line 1165 的 if(hasPdf) 走 else 分支，显示 pdfDropZone）
+    renderPaperDetail(paperId);
+    showToast("🔄 重置中，同步云端…");
+    // 4. 立即 push（跳过 3s debounce，避免中途刷新 / 切 tab 导致 push 丢失）
+    if (typeof flushPush === "function") {
+      try {
+        await flushPush("重置PDF关联");
+        showToast("✅ PDF 关联已清空，可拖入新 PDF");
+      } catch(pushErr) {
+        showToast("⚠ 本地已重置，但云端同步失败：" + (pushErr && pushErr.message || pushErr), 5000);
+      }
+    } else {
+      debouncedPush("重置PDF关联");
+      showToast("🔄 PDF 关联已重置（3 秒内同步云端）");
+    }
+  } catch(e) {
+    showToast("❌ 重置失败: " + (e && e.message || e));
+  }
 }
 
 // ==================== SECTIONS ====================

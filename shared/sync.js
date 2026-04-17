@@ -311,14 +311,31 @@ async function _pushHeartbeat() {
   }
 }
 
-// visibilitychange 优化：标签页隐藏时停止轮询
+// visibilitychange 优化：标签页隐藏时停止轮询 + flush 任何挂起的 push
 document.addEventListener("visibilitychange", () => {
   if (!isGHConnected()) return;
   if (document.hidden) {
     stopPolling();
+    // 兜底：如果有 pending 的 debouncedPush，立即 flush（避免切走后 3s 窗口没发出）
+    if (_pushTimer) {
+      console.log("[sync] visibility hidden — flushing pending push");
+      clearTimeout(_pushTimer);
+      _pushTimer = null;
+      _doPushNow(null).catch(() => {});
+    }
   } else {
     startPolling();
   }
+});
+
+// 关闭页面前 flush 任何挂起的 push（best-effort — 浏览器可能中断请求）
+window.addEventListener("beforeunload", () => {
+  if (!isGHConnected() || !_pushTimer) return;
+  console.log("[sync] beforeunload — flushing pending push (best-effort)");
+  clearTimeout(_pushTimer);
+  _pushTimer = null;
+  // Fire-and-forget；无法 await（beforeunload 不等 Promise）
+  _doPushNow(null).catch(() => {});
 });
 
 // ==================== 连接 / 断开 ====================
@@ -767,6 +784,47 @@ let _pendingChangeDescs = [];  // 收集 debounce 期间的所有变更描述
 let _pushRetryCount = 0;
 const MAX_PUSH_RETRIES = 5;
 
+// 内部核心：执行一次实际 push（被 debouncedPush 和 flushPush 共用）
+async function _doPushNow(targetAppId) {
+  if (!isGHConnected()) return;
+  // 等待正在进行的同步操作完成
+  if (_isSyncing) {
+    _pushRetryCount++;
+    if (_pushRetryCount > MAX_PUSH_RETRIES) {
+      console.warn("[sync] push abandoned after " + MAX_PUSH_RETRIES + " retries");
+      _pushRetryCount = 0;
+      return;
+    }
+    console.log("[sync] push delayed: sync in progress (retry " + _pushRetryCount + ")");
+    await new Promise(r => setTimeout(r, 2000));
+    return _doPushNow(targetAppId);
+  }
+  _pushRetryCount = 0;
+  _isSyncing = true;
+  // 合并多个变更描述（debounce 期间的操作合并为一条日志）
+  const changeDesc = _pendingChangeDescs.length
+    ? [...new Set(_pendingChangeDescs)].join("、")
+    : null;
+  _pendingChangeDescs = [];
+  var pushId = (targetAppId && _syncApps[targetAppId]) ? targetAppId : _currentAppId;
+  try {
+    const result = await ghPushApp(pushId, false, changeDesc);
+    // 更新 updated_at，这样下次 poll 不会把自己的修改当成远端更新
+    if (result && result.updated_at) {
+      _lastKnownUpdatedAt = result.updated_at;
+    }
+    _syncStatus = "synced";
+    _lastSyncTime = Date.now();
+    renderSyncStatus();
+    return result;
+  } catch (e) {
+    console.warn("[sync] push failed:", e);
+    throw e;
+  } finally {
+    _isSyncing = false;
+  }
+}
+
 function debouncedPush(appIdOrDesc, desc) {
   // Support both debouncedPush("desc") and debouncedPush("appId", "desc")
   var targetAppId, changeDescArg;
@@ -779,43 +837,29 @@ function debouncedPush(appIdOrDesc, desc) {
   }
   if (changeDescArg) _pendingChangeDescs.push(changeDescArg);
   clearTimeout(_pushTimer);
-  _pushTimer = setTimeout(async () => {
-    if (!isGHConnected()) return;
-    // 等待正在进行的同步操作完成
-    if (_isSyncing) {
-      _pushRetryCount++;
-      if (_pushRetryCount > MAX_PUSH_RETRIES) {
-        console.warn("[sync] push abandoned after " + MAX_PUSH_RETRIES + " retries");
-        _pushRetryCount = 0;
-        return;
-      }
-      console.log("[sync] push delayed: sync in progress (retry " + _pushRetryCount + ")");
-      setTimeout(() => debouncedPush(targetAppId, changeDescArg), 2000);
-      return;
-    }
-    _pushRetryCount = 0;
-    _isSyncing = true;
-    // 合并多个变更描述（3s 内的操作合并为一条日志）
-    const changeDesc = _pendingChangeDescs.length
-      ? [...new Set(_pendingChangeDescs)].join("、")
-      : null;
-    _pendingChangeDescs = [];
-    var pushId = (targetAppId && _syncApps[targetAppId]) ? targetAppId : _currentAppId;
-    try {
-      const result = await ghPushApp(pushId, false, changeDesc);
-      // 更新 updated_at，这样下次 poll 不会把自己的修改当成远端更新
-      if (result && result.updated_at) {
-        _lastKnownUpdatedAt = result.updated_at;
-      }
-      _syncStatus = "synced";
-      _lastSyncTime = Date.now();
-      renderSyncStatus();
-    } catch (e) {
-      console.warn("[sync] debounced push failed:", e);
-    } finally {
-      _isSyncing = false;
-    }
+  _pushTimer = setTimeout(() => {
+    _pushTimer = null;
+    _doPushNow(targetAppId).catch(() => {});
   }, 3000);
+}
+
+/**
+ * 立即 push（跳过 3s debounce），用于关键单次操作（如关联 PDF、重置 PDF）。
+ * 返回 Promise，可 await 以拿到 push 完成时机。
+ */
+async function flushPush(appIdOrDesc, desc) {
+  var targetAppId, changeDescArg;
+  if (desc !== undefined) {
+    targetAppId = appIdOrDesc;
+    changeDescArg = desc;
+  } else {
+    targetAppId = null;
+    changeDescArg = appIdOrDesc;
+  }
+  if (changeDescArg) _pendingChangeDescs.push(changeDescArg);
+  // 取消任何挂起的 debounce 计时器（它们产生的 push 会被本次覆盖）
+  if (_pushTimer) { clearTimeout(_pushTimer); _pushTimer = null; }
+  return _doPushNow(targetAppId);
 }
 
 /**

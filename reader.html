@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>学术工具 · 论文阅读器</title>
+<link rel="stylesheet" href="shared/theme.css?v=1773955514">
+<link rel="stylesheet" href="shared/reader.css?v=1773955514">
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="nav-tabs" id="navTabs"></div>
+  <h1>📄 论文阅读器</h1>
+  <div class="search-area">
+    <span class="search-icon">🔍</span>
+    <input class="search-box" id="searchInput" placeholder="搜索标题、作者、关键词、#分类标签..." oninput="renderPaperList()">
+  </div>
+  <div class="stats">
+    <div class="stat-badge"><span id="statPapers">0</span>篇</div>
+    <div class="stat-badge"><span id="statNotes">0</span>笔记</div>
+  </div>
+  <div class="actions">
+    <button class="btn" onclick="openAddPaperModal()">+ 上传PDF</button>
+    <button class="btn" onclick="downloadAllPdfs()" title="批量下载所有 PDF 到本地">📥 下载全部PDF</button>
+    <div class="sep"></div>
+    <div id="syncButtonsArea" style="display:flex;gap:4px;align-items:center;"></div>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="container">
+  <div class="sidebar" id="paperSidebar">
+    <div id="folderTree"></div>
+    <div id="sortFilterBar"></div>
+    <div class="sidebar-divider"></div>
+    <div id="paperList"></div>
+    <div class="sidebar-add" onclick="openAddPaperModal()">+ 上传新论文</div>
+  </div>
+  <div class="content" id="mainContent"></div>
+</div>
+
+<!-- Upload PDF Modal -->
+<div class="modal-overlay" id="addPaperModal">
+  <div class="modal" style="width:460px;">
+    <h3>📄 上传论文 PDF</h3>
+    <div class="pdf-upload-zone" id="pdfUploadZone" onclick="document.getElementById('apPdfFile').click()" style="padding:40px 20px;margin-bottom:12px">
+      <div style="font-size:36px;margin-bottom:8px">📎</div>
+      <div style="font-size:14px;font-weight:600">点击选择 PDF 文件</div>
+      <div style="font-size:11px;margin-top:4px;color:#64748b">或拖拽文件到此处，支持多选</div>
+    </div>
+    <input type="file" id="apPdfFile" accept=".pdf" style="display:none" onchange="handlePdfSelect(this)" multiple>
+    <div class="err" id="apError"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('addPaperModal')">取消</button></div>
+  </div>
+</div>
+
+<!-- Edit Paper Modal -->
+<div class="modal-overlay" id="editPaperModal">
+  <div class="modal" style="width:500px;">
+    <h3>✏️ 编辑论文信息</h3>
+    <div class="field"><label>标题 *</label><input id="epTitle"></div>
+    <div class="field"><label>作者</label><input id="epAuthors"></div>
+    <div class="field"><label>年份</label><input id="epYear" type="number"></div>
+    <div class="field"><label>期刊/会议</label><input id="epJournal"></div>
+    <div class="field"><label>DOI / URL</label><input id="epDoi"></div>
+    <div class="field"><label>关键词 (逗号分隔)</label><input id="epTags"></div>
+    <div class="field"><label>文件夹</label><select id="epFolder"></select></div>
+    <div class="err" id="epError"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('editPaperModal')">取消</button>
+      <button class="btn primary" onclick="submitEditPaper()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Section Modal -->
+<div class="modal-overlay" id="addSectionModal">
+  <div class="modal">
+    <h3>📑 添加内容板块</h3>
+    <div class="field"><label>板块标题 *</label><input id="asTitle" placeholder="e.g. Methods, Key Findings"></div>
+    <div class="field"><label>图标</label><input id="asIcon" placeholder="emoji" maxlength="4" style="width:60px"></div>
+    <div class="field"><label>内容</label><textarea id="asContent" placeholder="板块内容..." style="min-height:100px"></textarea></div>
+    <div class="err" id="asError"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addSectionModal')">取消</button>
+      <button class="btn primary" onclick="submitAddSection()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sync Modal -->
+<div class="modal-overlay" id="syncModal">
+  <div class="modal" style="width:520px;">
+    <h3>☁️ 云同步设置</h3>
+    <div id="syncModalBody"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('syncModal')">关闭</button></div>
+  </div>
+</div>
+
+<!-- Add Word Modal -->
+<div class="modal-overlay" id="addWordModal">
+  <div class="modal">
+    <h3>📚 添加到词库</h3>
+    <div class="field"><label>英文单词/短语 *</label><input id="awWord"></div>
+    <div class="field"><label>中文释义 *</label><input id="awMeaning"></div>
+    <div class="field"><label>例句/语境</label><input id="awContext"></div>
+    <div class="field"><label>词库分类</label><select id="awCategory"></select></div>
+    <div class="err" id="awError"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addWordModal')">取消</button>
+      <button class="btn green" onclick="submitAddWord()">📚 添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Reference Modal -->
+<div class="modal-overlay" id="addRefModal">
+  <div class="modal">
+    <h3 id="addRefModalTitle">添加引用文章</h3>
+    <div class="field"><label>文章标题 *</label><input id="arTitle" placeholder="Paper title..."></div>
+    <div class="field"><label>作者</label><input id="arAuthors" placeholder="Authors (optional)"></div>
+    <div class="field"><label>年份</label><input id="arYear" type="number" placeholder="2024"></div>
+    <div class="field"><label>链接 (URL)</label><input id="arUrl" placeholder="https://... (留空自动生成Scholar链接)"></div>
+    <div class="err" id="arError"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addRefModal')">取消</button>
+      <button class="btn green" onclick="submitAddRef()">✅ 添加</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="shared/utils.js?v=1773955514"></script>
+<script src="shared/sync.js?v=1773955514"></script>
+<script src="shared/pdf-viewer.js?v=1773955514"></script>
+<script src="shared/notes-panel.js?v=1773955514"></script>
+<script src="shared/folder-manager.js?v=1773955514"></script>
+<script src="shared/panel-manager.js?v=1773955514"></script>
+<script src="shared/close-reading.js?v=1773955514"></script>
+<script>
+// ==================== DATA ====================
+const STORAGE_KEY = "fsi_papers_data";
+const PAPERS_GIST_FILE = "fsi_papers_sync.json";
+const VOCAB_GIST_FILE = "fsi_vocab_sync.json";
+const PDF_DB_NAME = "fsi_pdf_store";
+const PDF_DB_VER = 1;
+
+// ==PAPERS_DEFAULT_DATA_BEGIN==
+const DEFAULT_PAPERS = [
+  {
+    id: "paper_wang_2022_jfm", title: "The Controlled Impact of Elastic Plates on a Quiescent Water Surface",
+    authors: "An Wang, Kit Pan Wong, Miao Yu, Kenneth T. Kiger, James H. Duncan", year: 2022,
+    journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2022.154",
+    tags: ["FSI","elastic plate","water impact","slamming","hydroelasticity"], pdfUrl: "papers/01_wang_2022_jfm.pdf",
+    summary: "实验研究了三块不同厚度的矩形铝板以恒定速度斜向入水。核心发现：刚度比 R_D 是控制弹性效应的主要参数。R_D<1.0 为准静态响应，R_D>1.0 出现强双向流固耦合，存在减载（中段）和增载（末段）两种机制。",
+    sections: [
+      { icon: "🔬", title: "实验方法", content: "**水槽**：13.41m x 2.45m 透明拖曳水槽\n**驱动**：液压伺服电机（44kW）恒速控制\n**测力**：四个Kistler 9367C传感器，采样率40.96kHz\n**板**：铝合金6061-T651，L=1080mm，三种厚度\n**参数矩阵**：5档速度 x 6个速度比 x 3块板 = 72种工况" },
+      { icon: "📊", title: "核心结果", content: "**R_D主控**：固定R_D变化R_T时曲线高度重合\n**弹性效应**：最薄板中段力低于厚板，末段急剧上升\n**冲量守恒**：无量纲冲量范围仅13.5-15\n**物理机制**：前半段倾角增大+速度减小→减载；后半段倾角减小+速度恢复→增载" },
+      { icon: "🎯", title: "学术贡献", content: "1. 恒速控制驱动消除刚体运动干扰\n2. 覆盖准静态到强动态各类响应\n3. 力/力矩+喷根+板挠曲三种物理量同步测量\n4. 减载与增载两阶段并存的耦合机制" }
+    ], notes: [], addedAt: 1710000000000, updatedAt: 1710000000000
+  },
+  {
+    id: "paper_lee_2024_snh", title: "The Natural Response of Uniform and Nonuniform Plates in Air and Partially Submerged in Water",
+    authors: "S. Lee, E. Fishman, R. Pellegrini, A. Wang, K. T. Kiger, M. Yu, J. H. Duncan, F. Stern, M. Diez", year: 2024,
+    journal: "35th Symposium on Naval Hydrodynamics", doi: "",
+    tags: ["vibration","added mass","DIC","natural frequency","half-wet"], pdfUrl: "papers/02_lee_2024_snh.pdf",
+    summary: "Wang et al. (2022) 的后续工作，研究3块板在干态/半湿态的固有振动。使用全场DIC系统替代5点离散测量。核心发现：一阶频率半湿态降至干态1/3（附加质量比M1约6.7），低频模态受水影响远大于高频模态。",
+    sections: [
+      { icon: "🔗", title: "与JFM论文的关系", content: "理解砰击过程中流固耦合的\"零阶近似\"\n**升级**：5点→全场DIC（~8000点），1块→3块板，pinned→pinned+clamped" },
+      { icon: "📊", title: "核心结果", content: "**固有频率**：f1 dry=23.3Hz → half-wet=8.2Hz\n**附加质量比**：M1=6.7, M2=2.44\n**振型不变**：证实频率变化由附加质量引起" },
+      { icon: "💡", title: "研究启示", content: "潜在方向：砰击中弯曲模态时变特性、用M值修正结构响应、压力场测量" }
+    ], notes: [], addedAt: 1710000100000, updatedAt: 1710000100000
+  },
+  {
+    id: "paper_solav_2022_joss", title: "DuoDIC: 3D Digital Image Correlation in MATLAB",
+    authors: "Dana Solav, Asaf Silverstein", year: 2022,
+    journal: "Journal of Open Source Software", doi: "https://doi.org/10.21105/joss.04279",
+    tags: ["DIC","MATLAB","3D measurement","open source","strain"], pdfUrl: "papers/03_solav_2022_joss.pdf",
+    summary: "开源MATLAB工具箱，用于双相机立体3D-DIC测量。验证精度：位移误差约1.3μm，应变误差约3.4×10⁻⁴。你获取实验数据的核心测量工具。",
+    sections: [
+      { icon: "🔧", title: "工作流程", content: "Step 1 立体标定 → Step 2 2D-DIC互相关(Ncorr) → Step 3 3D重建 → Step 4 后处理(应变)" },
+      { icon: "📏", title: "精度与对比", content: "位移误差(1.3±1.1)×10⁻³mm，应变误差(3.4±2.3)×10⁻⁴\nDuoDIC开源可定制 vs LaVision商业封闭" }
+    ], notes: [], addedAt: 1710000200000, updatedAt: 1710000200000
+  },
+  {
+    id: "paper_joshi_2022_jfm", title: "The unsteady force response of an accelerating flat plate with controlled spanwise bending",
+    authors: "Kamlesh Joshi, Samik Bhattacharya", year: 2022,
+    journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2021.1110",
+    tags: ["unsteady force","spanwise bending","added mass","vortex dynamics","PIV"], pdfUrl: "papers/04_joshi_2022_jfm.pdf",
+    summary: "主动可控展向弯曲对非定常力的影响。bend-down增载~15%，bend-up减载~22%。弯曲通过改变局部相对速度影响剪切层供涡速率。导师推荐此文。",
+    sections: [
+      { icon: "🧪", title: "实验设计", content: "拖曳水池，Re=18000，主动执行器驱动弯曲\n控制参数：加速数Ac，弯曲持续时间t_b\n测量：六分量力天平 + PIV" },
+      { icon: "📊", title: "核心结果", content: "Bend-down增载，Bend-up减载，低Ac时效果最显著\n翼尖涡与边缘涡交互是三维效应关键" },
+      { icon: "💡", title: "对你的启示", content: "可借鉴：力分解框架、弯曲参数化、附加质量空间变化\n核心区别：你的课题是被动耦合循环（力→变形→力反馈）" }
+    ], notes: [], addedAt: 1710000300000, updatedAt: 1710000300000
+  },
+  {
+    id: "paper_wagner_1932_zamm", title: "Über Stoß- und Gleitvorgänge an der Oberfläche von Flüssigkeiten",
+    authors: "Herbert Wagner", year: 1932,
+    journal: "ZAMM - Zeitschrift für Angewandte Mathematik und Mechanik", doi: "https://doi.org/10.1002/zamm.19320120402",
+    tags: ["water impact","slamming","Wagner theory","added mass","classical theory"], pdfUrl: "",
+    summary: "水面冲击问题的奠基之作。将刚性平板/楔形体以恒速撞击水面的问题转化为扩展平板的附加质量问题，给出了冲击力和湿润面积的解析表达式。射流喷根（spray root）位置的修正使其比 von Kármán (1929) 更精确。此后近百年几乎所有 water entry / slamming 研究都以此为理论起点。",
+    sections: [
+      { icon: "📜", title: "历史地位", content: "与 von Kármán (1929) 并列为水面冲击力学的两大奠基工作。Wagner 理论更精确地处理了射流喷根的运动，至今仍是许多解析和数值模型的基础。你的论文 Introduction 以此为叙事起点非常自然。" },
+      { icon: "🔑", title: "核心贡献", content: "1. 将入水冲击转化为等效附加质量问题\n2. 湿润面积随时间扩展的解析公式\n3. 射流喷根位置的修正（相比 von Kármán）\n4. 为后续 hydroelastic 扩展奠定理论框架" },
+      { icon: "🔗", title: "叙事链位置", content: "Wagner (1932) → Korobkin et al. hydroelastic 扩展 → Duncan/Wang 实验验证 → 你的超弹性工作 → 水刀手术/无针注射应用" }
+    ], notes: [], addedAt: 1710000400000, updatedAt: 1710000400000, folderId: "f_intro_narrative"
+  },
+  {
+    id: "paper_korobkin_2006_jfs", title: "Hydroelastic coupling of beam finite element model with Wagner theory of water impact",
+    authors: "Alexander Korobkin, Romain Guéret, Šime Malenica", year: 2006,
+    journal: "Journal of Fluids and Structures", doi: "https://doi.org/10.1016/j.jfluidstructs.2006.02.004",
+    tags: ["hydroelasticity","Wagner theory","FEM","water impact","beam","slamming"], pdfUrl: "",
+    summary: "将 Wagner 水面冲击理论与弹性梁有限元模型耦合，建立了弹性结构入水冲击的 hydroelastic 理论框架。这是从经典刚体 Wagner 理论到考虑结构弹性响应的关键桥梁工作，直接启发了后续的实验研究（如 Wang et al. 2022 JFM）。",
+    sections: [
+      { icon: "🔗", title: "承上启下的地位", content: "**承上**：基于 Wagner (1932) 的冲击力理论\n**启下**：引入结构弹性，为理解弹性板入水时的双向流固耦合（力→变形→力反馈）提供了理论工具\n**与你工作的关系**：Wang et al. (2022 JFM) 的实验验证了类似理论预测，你的工作进一步推广到超弹性材料" },
+      { icon: "📊", title: "核心方法", content: "1. 流体侧：Wagner 理论（修正的附加质量公式）\n2. 结构侧：Euler-Bernoulli 梁有限元模型\n3. 耦合：迭代求解流体压力和结构变形\n4. 验证：与已有解析解和实验数据对比" }
+    ], notes: [], addedAt: 1710000500000, updatedAt: 1710000500000, folderId: "f_intro_narrative"
+  },
+  // ===== Review Articles (ARFM & Books) =====
+  {
+    id: "paper_korobkin_1988_arfm", title: "Initial Stage of Water Impact",
+    authors: "Alexander A. Korobkin, V. V. Pukhnachov", year: 1988,
+    journal: "Annual Review of Fluid Mechanics", doi: "https://doi.org/10.1146/annurev.fl.20.010188.001111",
+    tags: ["water impact","review","initial stage","free surface","slamming","ARFM"], pdfUrl: "",
+    summary: "Annual Review of Fluid Mechanics 上最早的水面冲击综述。系统讨论了固体与自由表面液体交互的初始阶段力学特征，涵盖飞艇着水、高速液滴冲击等工程场景。为后续数十年的 water entry 理论（包括 Wagner 理论的现代扩展）奠定了综述基础。",
+    sections: [
+      { icon: "📚", title: "综述定位", content: "ARFM 级别的 review，系统梳理了水面冲击初始阶段的数学建模。适合在 Introduction 中作为经典综述引用，表明你对领域历史有全面了解。" },
+      { icon: "🔗", title: "叙事链位置", content: "经典综述 — 与 Wagner (1932) 一起构成理论基石的文献支撑" }
+    ], notes: [], addedAt: 1710000600000, updatedAt: 1710000600000, folderId: "f_intro_narrative"
+  },
+  {
+    id: "paper_korobkin_2004_ejam", title: "Analytical Models of Water Impact",
+    authors: "Alexander A. Korobkin", year: 2004,
+    journal: "European Journal of Applied Mathematics", doi: "https://doi.org/10.1017/S0956792504005765",
+    tags: ["water impact","analytical model","Wagner","Logvinovich","MLM","GWM"], pdfUrl: "",
+    summary: "系统比较了水面冲击的主要解析模型：Original Logvinovich Model (OLM)、Modified Logvinovich Model (MLM) 和 Generalised Wagner Model (GWM)。证明 Logvinovich 模型比 GWM 更符合实验数据。这是理解 Wagner 理论现代扩展的关键参考。",
+    sections: [
+      { icon: "📊", title: "模型对比", content: "OLM vs MLM vs GWM：三种模型在预测压力分布和冲击力方面的优劣\nLogvinovich 模型在二维情况下表现最好\n为后续弹性/超弹性结构冲击的理论分析提供基础" },
+      { icon: "🔗", title: "叙事链位置", content: "Wagner (1932) 的现代解析扩展 — 连接经典理论与数值方法之间的桥梁" }
+    ], notes: [], addedAt: 1710000700000, updatedAt: 1710000700000, folderId: "f_intro_narrative"
+  },
+  {
+    id: "paper_dias_2018_arfm", title: "Slamming: Recent Progress in the Evaluation of Impact Pressures",
+    authors: "Frédéric Dias, Jean-Michel Ghidaglia", year: 2018,
+    journal: "Annual Review of Fluid Mechanics", doi: "https://doi.org/10.1146/annurev-fluid-010816-060121",
+    tags: ["slamming","impact pressure","review","LNG","wave energy","ARFM"], pdfUrl: "",
+    summary: "ARFM 上关于砰击问题的最新综述（2018）。全面回顾了冲击压力的评估方法，覆盖 LNG 运输、波浪能采集等新兴应用。讨论了实验、数值和物理建模三方面的挑战——时空尺度跨度极大是核心难点。",
+    sections: [
+      { icon: "📚", title: "综述价值", content: "最权威的现代 slamming 综述（ARFM IF>30），覆盖 2018 年前的主要进展\n适合在 Introduction 中作为 'for comprehensive reviews, see...' 引用" },
+      { icon: "🔗", title: "叙事链位置", content: "现代综述文献 — 支撑你的 Introduction 中关于 slamming 仍是活跃研究领域的论述" }
+    ], notes: [], addedAt: 1710000800000, updatedAt: 1710000800000, folderId: "f_intro_narrative"
+  },
+  {
+    id: "paper_faltinsen_2005_book", title: "Hydrodynamics of High-Speed Marine Vehicles",
+    authors: "Odd M. Faltinsen", year: 2005,
+    journal: "Cambridge University Press (Book)", doi: "https://doi.org/10.1017/CBO9780511546068",
+    tags: ["slamming","hydroelasticity","marine vehicles","book","planing","wave loads"], pdfUrl: "",
+    summary: "Faltinsen 经典专著，全面讨论高速船舶的水动力学问题，包括砰击、水弹性效应、喷水推进等。Chapter 8 专门讨论 slamming，是理解工程背景（船舶/海洋结构砰击损伤）的权威参考。",
+    sections: [
+      { icon: "📖", title: "参考价值", content: "CUP 经典专著，在 slamming 和 hydroelasticity 领域被广泛引用\n适合在 Introduction 中与 Korobkin & Pukhnachov (1988) 一起作为背景参考" },
+      { icon: "🔗", title: "叙事链位置", content: "工程背景参考 — 解释为什么 water impact 研究对海洋工程至关重要" }
+    ], notes: [], addedAt: 1710000850000, updatedAt: 1710000850000, folderId: "f_intro_narrative"
+  },
+  // ===== Hydroelastic Theory =====
+  {
+    id: "paper_khabakhpasheva_2006_jem", title: "Regular Wave Impact onto an Elastic Plate",
+    authors: "Tatyana I. Khabakhpasheva, Alexander A. Korobkin", year: 2006,
+    journal: "Journal of Engineering Mathematics", doi: "https://doi.org/10.1007/s10665-006-9074-0",
+    tags: ["elastic plate","wave impact","hydroelasticity","Korobkin","analytical"], pdfUrl: "",
+    summary: "研究规则波浪冲击弹性平板的问题。建立了波浪冲击弹性结构的解析理论框架，是 Korobkin 系列 hydroelastic 工作的重要一环。与 Korobkin (2006 JFS) 一起，构成了从 Wagner 理论到弹性结构扩展的理论基础。",
+    sections: [
+      { icon: "📊", title: "核心贡献", content: "波浪冲击（而非平水面入水）条件下的弹性板响应\n解析方法处理流体-弹性板耦合\n与 Korobkin (2006 JFS) 互补：一个做 beam FEM，一个做解析" },
+      { icon: "🔗", title: "叙事链位置", content: "Hydroelastic 理论扩展 — 与 Korobkin 2006 JFS 一起支撑 §1.2 Hydroelastic Extensions" }
+    ], notes: [], addedAt: 1710000900000, updatedAt: 1710000900000, folderId: "f_intro_narrative"
+  },
+  {
+    id: "paper_reinhard_2013_jfm", title: "Water Entry of a Flat Elastic Plate at High Horizontal Speed",
+    authors: "Moritz Reinhard, Alexander A. Korobkin, Mark J. Cooker", year: 2013,
+    journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2013.155",
+    tags: ["elastic plate","water entry","horizontal speed","hydroelasticity","JFM"], pdfUrl: "papers/06_reinhard_2013_jfm.pdf",
+    summary: "二维弹性平板以高水平速度斜向入水的理论分析。水平速度分量远大于垂直速度——这与你的实验设置（恒速斜向入水）非常接近。是连接 Korobkin 理论和 Wang et al. (2022 JFM) 实验的关键理论工作。",
+    sections: [
+      { icon: "📊", title: "核心方法", content: "高速水平入水的 Wagner 理论 + 弹性板 Euler-Bernoulli 模型\n渐近分析方法处理流固耦合\n预测板的变形模态和冲击力时间历程" },
+      { icon: "🔗", title: "叙事链位置", content: "理论预测 → Wang et al. (2022) 实验验证的直接对接\n你的工作进一步推广到超弹性材料" }
+    ], notes: [], addedAt: 1710001000000, updatedAt: 1710001000000, folderId: "f_intro_narrative"
+  },
+  // ===== Application: Needle-free Injection =====
+  {
+    id: "paper_mitragotri_2006_nrdd", title: "Current Status and Future Prospects of Needle-free Liquid Jet Injectors",
+    authors: "Samir Mitragotri", year: 2006,
+    journal: "Nature Reviews Drug Discovery", doi: "https://doi.org/10.1038/nrd2076",
+    tags: ["needle-free injection","jet injector","drug delivery","review","transdermal"], pdfUrl: "",
+    summary: "Nature Reviews Drug Discovery 上关于无针注射的权威综述。回顾了液体射流注射器 50 多年的发展历史、临床应用、力学机理和未来前景。核心物理：高速液体射流穿透皮肤递送药物，皮肤的超弹性力学响应决定了穿透深度和给药效率。",
+    sections: [
+      { icon: "💊", title: "应用背景", content: "无针注射已用于胰岛素、疫苗、生长激素等递送\n核心挑战：疼痛和淤青限制了广泛接受度\n新方向：微射流、可控射流（如 MIT 的工作）" },
+      { icon: "🔗", title: "与你研究的联系", content: "高速液体射流冲击超弹性材料（皮肤）= 你的 FSI 问题在生物医学中的直接应用\n你的基础力学研究为优化注射参数提供理论支撑" }
+    ], notes: [], addedAt: 1710001100000, updatedAt: 1710001100000, folderId: "f_intro_narrative"
+  },
+  {
+    id: "paper_shergold_2006_jbiomech", title: "The Penetration of a Soft Solid by a Liquid Jet, with Application to Needle-free Injection",
+    authors: "Oliver A. Shergold, Norman A. Fleck, Thomas S. King", year: 2006,
+    journal: "Journal of Biomechanics", doi: "https://doi.org/10.1016/j.jbiomech.2005.08.028",
+    tags: ["jet penetration","soft solid","needle-free injection","skin mechanics","hyperelastic","crack"], pdfUrl: "",
+    summary: "研究液体射流穿透软固体（人体皮肤和硅胶）的力学机制。关键发现：射流通过形成和打开平面裂纹来穿透软固体，穿透所需的流体驻点压力随射流直径增大而减小。这是将射流冲击与超弹性材料力学直接联系起来的关键实验工作。",
+    sections: [
+      { icon: "🔬", title: "实验方法", content: "使用 Intraject 无针注射器\n样本：人体皮肤（in vivo）和硅胶\n测量射流特性和穿透深度\n建立 Shergold-Fleck 穿透模型" },
+      { icon: "🔗", title: "与你研究的关键联系", content: "**直接桥梁**：射流 + 超弹性材料 + 力学机理 = 你的研究主题在生物医学场景中的体现\n他们发现裂纹穿透机制取决于材料的超弹性本构，这正是你的基础研究所要阐明的" }
+    ], notes: [], addedAt: 1710001200000, updatedAt: 1710001200000, folderId: "f_intro_narrative"
+  },
+  // ===== Application: Hydrosurgery =====
+  {
+    id: "paper_shimada_2021_iwj", title: "Efficacy of Versajet Hydrosurgery System in Chronic Wounds: A Systematic Review",
+    authors: "Keiko Shimada, Ryoko Ojima, Junko Sugama", year: 2021,
+    journal: "International Wound Journal", doi: "https://doi.org/10.1111/iwj.13528",
+    tags: ["hydrosurgery","Versajet","water jet","debridement","wound care","review"], pdfUrl: "",
+    summary: "系统综述了 Versajet 水刀手术系统在慢性伤口清创中的效果。Versajet 利用高压平行水射流产生 Venturi 效应，精确切除坏死组织同时保留活性组织。比传统手术方法平均节省 8.87 分钟，清创质量更高。",
+    sections: [
+      { icon: "🏥", title: "临床应用", content: "Versajet（Smith & Nephew）是目前主流的水刀手术设备\n应用：烧伤、慢性伤口、皮肤移植准备\n核心优势：精准控制切割深度，保留更多活性组织" },
+      { icon: "🔗", title: "与你研究的联系", content: "水刀手术 = 高速水射流冲击软组织（超弹性材料）\n目前临床设备参数主要靠经验调节，缺乏基础力学理解\n你的 FSI 研究可以为优化射流参数提供科学依据" }
+    ], notes: [], addedAt: 1710001300000, updatedAt: 1710001300000, folderId: "f_intro_narrative"
+  },
+  // ===== Application: MIT Needle-free Device =====
+  {
+    id: "paper_hogan_2015_eod", title: "Needle-free Delivery of Macromolecules Through the Skin Using Controllable Jet Injectors",
+    authors: "Nora Catherine Hogan, Andrew J. Taberner, Lynette A. Jones, Ian W. Hunter", year: 2015,
+    journal: "Expert Opinion on Drug Delivery", doi: "https://doi.org/10.1517/17425247.2015.1033398",
+    tags: ["needle-free injection","MIT","Lorentz actuator","controllable jet","drug delivery"], pdfUrl: "",
+    summary: "MIT BioInstrumentation Lab 开发的可控射流注射装置综述。使用 Lorentz 力执行器精确控制射流速度和剂量，射流速度可达声速级别。相比传统弹簧驱动注射器，电子控制提供了更精确的射流参数调节能力。",
+    sections: [
+      { icon: "🔧", title: "技术特点", content: "Lorentz 力执行器：磁铁 + 线圈 + 活塞\n主动控制：可调节射流速度曲线\n速度：接近声速（> 200 m/s）\n商业化：MIT spinout Portal Instruments → Takeda 合作" },
+      { icon: "🔗", title: "与你研究的联系", content: "射流参数（速度、直径、持续时间）需要匹配目标组织的力学特性\n你对超弹性材料在高速射流冲击下响应的理解，可直接指导此类设备的参数优化" }
+    ], notes: [], addedAt: 1710001400000, updatedAt: 1710001400000, folderId: "f_intro_narrative"
+  },
+  // ===== Soft matter / Gel penetration =====
+  {
+    id: "paper_turkoz_2025_jfm", title: "A Modelling Framework for Jet Penetration into Soft Gels",
+    authors: "S. M. Mousavi, A. Hassanzadeh, F. Larachi, C.-D. Ohl, S. A. Taghavi", year: 2025,
+    journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2025.352",
+    tags: ["jet penetration","soft gel","needle-free injection","PIV","viscoplastic"], pdfUrl: "papers/07_mousavi_2025_jfm.pdf",
+    summary: "JFM 最新论文（2025），建立了射流穿透软凝胶的建模框架。使用相机成像和层析 PIV 可视化牛顿流体射入软粘塑性凝胶的过程。为优化生物医学和软体机器人中的流体递送提供了力学基础。",
+    sections: [
+      { icon: "🔬", title: "研究方法", content: "相机成像 + 层析 PIV（时间分辨）\n射流：牛顿流体\n目标：软粘塑性凝胶（模拟生物组织）\n建模：理论框架预测穿透深度" },
+      { icon: "🔗", title: "与你研究的联系", content: "最新的射流-软材料交互研究\n你的工作从固体力学侧（超弹性结构响应）出发，与此文从流体侧的建模互补" }
+    ], notes: [], addedAt: 1710001500000, updatedAt: 1710001500000, folderId: "f_intro_narrative"
+  }
+];
+// ==PAPERS_DEFAULT_DATA_END==
+
+const DELETED_IDS_KEY = "fsi_papers_deleted_ids";
+
+function getDeletedIds() {
+  try { return JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || "[]"); } catch(e) { return []; }
+}
+function saveDeletedIds(ids) {
+  // 最多保留 200 条删除记录
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(ids.slice(-200)));
+}
+
+function loadPapers() {
+  let papers = [];
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) papers = JSON.parse(raw); } catch(e) {}
+  const ids = new Set(papers.map(p => p.id));
+  const deletedIds = new Set(getDeletedIds());
+  // 只添加未被用户主动删除过的默认论文
+  DEFAULT_PAPERS.forEach(dp => { if (!ids.has(dp.id) && !deletedIds.has(dp.id)) papers.push(JSON.parse(JSON.stringify(dp))); });
+  return papers;
+}
+function savePapers(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+let PAPERS = loadPapers();
+savePapers(PAPERS);
+window._PAPERS_REF = PAPERS; // for FolderManager access
+let currentPaperId = null, editPaperId = null;
+
+// ==================== IndexedDB ====================
+function openPdfDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(PDF_DB_NAME, PDF_DB_VER);
+    r.onupgradeneeded = e => e.target.result.createObjectStore("pdfs");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function savePdfBlob(id, blob) { const db = await openPdfDB(); return new Promise((res,rej) => { const tx = db.transaction("pdfs","readwrite"); tx.objectStore("pdfs").put(blob,id); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
+async function loadPdfBlob(id) { const db = await openPdfDB(); return new Promise((res,rej) => { const tx = db.transaction("pdfs","readonly"); const r = tx.objectStore("pdfs").get(id); r.onsuccess=()=>res(r.result||null); r.onerror=()=>rej(r.error); }); }
+async function deletePdfBlob(id) { try { const db = await openPdfDB(); db.transaction("pdfs","readwrite").objectStore("pdfs").delete(id); } catch(e){} }
+
+// ==================== PDF Cloud Sync (Gist) ====================
+// Upload PDF as base64 to Gist so all devices can access it
+var PDF_MAX_SIZE = 25 * 1024 * 1024; // 25MB max
+
+// ── PDF 云同步 v2 ─────────────────────────────────────
+// 架构：每个 PDF 存为独立的 PUBLIC Gist（解决私有 Gist raw_url 的 CORS 问题）
+// paper.pdfGistId 记录该 PDF 的 Gist ID
+// 下载时通过 public raw_url 直接获取（无需认证，CORS 无障碍）
+
+function _blobToBase64(blob) {
+  return new Promise(function(resolve) {
+    var ab = blob.arrayBuffer ? blob.arrayBuffer() : new Response(blob).arrayBuffer();
+    ab.then(function(buf) {
+      var bytes = new Uint8Array(buf);
+      var binary = "";
+      var chunkSize = 8192;
+      for (var i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      resolve(btoa(binary));
+    });
+  });
+}
+
+function _base64ToBlob(b64) {
+  var binary = atob(b64);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: "application/pdf" });
+}
+
+async function uploadPdfToGist(paperId, blob) {
+  if (!isGHConnected()) return;
+  if (blob.size > PDF_MAX_SIZE) {
+    showToast("⚠ PDF 太大 (" + (blob.size/1024/1024).toFixed(1) + "MB)，超过 25MB 限制", 5000);
+    return;
+  }
+  try {
+    var b64 = await _blobToBase64(blob);
+    console.log("[pdf-sync] Uploading PDF for " + paperId + " (" + (b64.length / 1024 / 1024).toFixed(1) + " MB b64)");
+
+    var paper = PAPERS.find(function(p) { return p.id === paperId; });
+
+    // 如果已有 pdfGistId，更新现有 Gist
+    if (paper && paper.pdfGistId) {
+      await ghAPI("https://api.github.com/gists/" + paper.pdfGistId, {
+        method: "PATCH",
+        body: JSON.stringify({ files: { "pdf.b64": { content: b64 } } })
+      });
+      console.log("[pdf-sync] ✅ Updated existing PDF gist: " + paper.pdfGistId);
+    } else {
+      // 创建新的 PUBLIC Gist（public=true 解决 raw_url CORS 问题）
+      var gist = await ghAPI("https://api.github.com/gists", {
+        method: "POST",
+        body: JSON.stringify({
+          description: "FSI PDF: " + paperId,
+          public: true,
+          files: { "pdf.b64": { content: b64 } }
+        })
+      });
+      // 保存 Gist ID 到论文元数据
+      if (paper) {
+        paper.pdfGistId = gist.id;
+        paper.updatedAt = Date.now();
+        savePapers(PAPERS);
+      }
+      console.log("[pdf-sync] ✅ Created PDF gist: " + gist.id);
+    }
+
+    // 清理旧方案（主 Gist 里的 fsi_pdf_xxx.b64 文件）
+    _cleanupOldPdfFile(paperId);
+
+    showToast("☁️ PDF 已同步到云端");
+  } catch(e) {
+    console.warn("[pdf-sync] Upload failed:", e);
+    showToast("⚠ PDF 云端同步失败: " + e.message, 4000);
+  }
+}
+
+// 清理旧方案遗留的 PDF 文件（不影响功能，静默清理）
+async function _cleanupOldPdfFile(paperId) {
+  try {
+    var gistId = getGHGistId();
+    var fileName = "fsi_pdf_" + paperId + ".b64";
+    var gist = await ghAPI("https://api.github.com/gists/" + gistId);
+    if (gist.files[fileName]) {
+      var files = {};
+      files[fileName] = null;
+      await ghAPI("https://api.github.com/gists/" + gistId, {
+        method: "PATCH",
+        body: JSON.stringify({ files: files })
+      });
+      console.log("[pdf-sync] Cleaned up old file: " + fileName);
+    }
+  } catch(e) { /* ignore cleanup errors */ }
+}
+
+async function downloadPdfFromGist(paperId) {
+  if (!isGHConnected()) return null;
+  var paper = PAPERS.find(function(p) { return p.id === paperId; });
+
+  // ── 新方案：独立 Gist ──
+  if (paper && paper.pdfGistId) {
+    try {
+      console.log("[pdf-sync] Fetching PDF gist: " + paper.pdfGistId);
+      var gist = await ghAPI("https://api.github.com/gists/" + paper.pdfGistId);
+      var file = gist.files["pdf.b64"];
+      if (!file) { console.warn("[pdf-sync] pdf.b64 not found in gist"); return null; }
+
+      var b64;
+      if (file.truncated) {
+        // 文件 >1MB（大多数 PDF），用 raw_url（public gist 无需认证）
+        console.log("[pdf-sync] File truncated, fetching raw_url...");
+        var resp = await fetch(file.raw_url, { cache: "no-store" });
+        if (!resp.ok) { console.warn("[pdf-sync] raw_url HTTP " + resp.status); return null; }
+        b64 = await resp.text();
+      } else {
+        // 文件 <1MB，API 直接返回了内容
+        b64 = file.content;
+      }
+
+      console.log("[pdf-sync] Downloaded " + (b64.length / 1024 / 1024).toFixed(1) + " MB b64");
+      var blob = _base64ToBlob(b64);
+      await savePdfBlob(paperId, blob);
+      console.log("[pdf-sync] ✅ Cached locally: " + paperId);
+      return blob;
+    } catch(e) {
+      console.warn("[pdf-sync] Download from PDF gist failed:", e);
+      return null;
+    }
+  }
+
+  // ── 旧方案兼容：主 Gist 里的 fsi_pdf_xxx.b64 ──
+  try {
+    var gistId = getGHGistId();
+    var fileName = "fsi_pdf_" + paperId + ".b64";
+    var mainGist = await ghAPI("https://api.github.com/gists/" + gistId);
+    var oldFile = mainGist.files[fileName];
+    if (!oldFile) return null;
+
+    console.log("[pdf-sync] Found old-style PDF, migrating...");
+    var b64Old;
+    if (oldFile.truncated) {
+      // 旧方案的 raw_url 可能因 CORS 失败，但还是试试
+      var resp2 = await fetch(oldFile.raw_url, { cache: "no-store" });
+      if (!resp2.ok) {
+        console.warn("[pdf-sync] Old raw_url failed (CORS?), HTTP " + resp2.status);
+        return null;
+      }
+      b64Old = await resp2.text();
+    } else {
+      b64Old = oldFile.content;
+    }
+
+    var blobOld = _base64ToBlob(b64Old);
+    await savePdfBlob(paperId, blobOld);
+    // 自动迁移到新方案
+    uploadPdfToGist(paperId, blobOld);
+    return blobOld;
+  } catch(e) {
+    console.warn("[pdf-sync] Old-style download failed:", e);
+    return null;
+  }
+}
+
+async function deletePdfFromGist(paperId) {
+  if (!isGHConnected()) return;
+  var paper = PAPERS.find(function(p) { return p.id === paperId; });
+
+  // 删除独立 PDF Gist
+  if (paper && paper.pdfGistId) {
+    try {
+      await ghAPI("https://api.github.com/gists/" + paper.pdfGistId, { method: "DELETE" });
+      console.log("[pdf-sync] Deleted PDF gist: " + paper.pdfGistId);
+    } catch(e) { console.warn("[pdf-sync] Delete PDF gist failed:", e); }
+  }
+
+  // 清理旧方案文件
+  _cleanupOldPdfFile(paperId);
+}
+
+// ==================== MERGE ====================
+function mergePapers(local, remote) {
+  if (!remote || !Array.isArray(remote)) return local;
+  const merged = JSON.parse(JSON.stringify(local));
+  remote.forEach(rp => {
+    const lp = merged.find(p => p.id === rp.id);
+    if (lp) {
+      // Ensure arrays exist before merging
+      if (!lp.notes) lp.notes = [];
+      if (!lp.sections) lp.sections = [];
+      if (!lp.references) lp.references = [];
+      if (!lp.citations) lp.citations = [];
+      // Merge notes (additive by id)
+      (rp.notes||[]).forEach(rn => { if (!lp.notes.some(ln => ln.id === rn.id)) lp.notes.push(rn); });
+      lp.notes.sort((a,b) => (a.ts||0) - (b.ts||0));
+      // Merge sections (additive by title+content hash to avoid false dedup)
+      (rp.sections||[]).forEach(rs => {
+        if (!lp.sections.some(ls => ls.title === rs.title && ls.content === rs.content)) lp.sections.push(rs);
+      });
+      // Merge references and citations (additive by doi/title)
+      (rp.references||[]).forEach(rr => {
+        var key = rr.doi || rr.title || "";
+        if (key && !lp.references.some(lr => (lr.doi || lr.title || "") === key)) lp.references.push(rr);
+      });
+      (rp.citations||[]).forEach(rc => {
+        var key = rc.doi || rc.title || "";
+        if (key && !lp.citations.some(lc => (lc.doi || lc.title || "") === key)) lp.citations.push(rc);
+      });
+      // Tags & categoryTags: merge independently of timestamp (take union)
+      if (rp.tags && rp.tags.length) {
+        if (!lp.tags) lp.tags = [];
+        rp.tags.forEach(t => { if (!lp.tags.includes(t)) lp.tags.push(t); });
+      }
+      if (rp.categoryTags && rp.categoryTags.length) {
+        if (!lp.categoryTags) lp.categoryTags = [];
+        rp.categoryTags.forEach(t => { if (!lp.categoryTags.includes(t)) lp.categoryTags.push(t); });
+      }
+      // readingLevel & readingReason: take non-null, prefer newer
+      var rTime = rp.updatedAt||0, lTime = lp.updatedAt||0;
+      if (!lp.readingLevel && rp.readingLevel) lp.readingLevel = rp.readingLevel;
+      if (!lp.readingReason && rp.readingReason) lp.readingReason = rp.readingReason;
+      // If remote is newer, overwrite scalar fields
+      if (rTime > lTime) {
+        console.log("[merge] 📥 远端更新: " + rp.id + " (remote:" + new Date(rTime).toLocaleString() + " > local:" + new Date(lTime).toLocaleString() + ")");
+        // All editable scalar fields — use rp[k] !== undefined to allow empty string overwrites
+        ["title","summary","authors","journal","doi","year","folderId","pdfGistId","readingLevel","readingReason","abstractEn","abstractZh"].forEach(k => {
+          if (rp[k] !== undefined) lp[k] = rp[k];
+        });
+        // pdfUrl: only sync if local doesn't have a user-uploaded blob
+        if (rp.pdfUrl !== undefined && !lp.hasPdf) lp.pdfUrl = rp.pdfUrl;
+        // hasPdf: only set to true, never false (blob may exist on other device)
+        if (rp.hasPdf) lp.hasPdf = true;
+        // Carry over the newer timestamp
+        lp.updatedAt = rp.updatedAt;
+      }
+    } else {
+      // 只添加本地不存在且未被删除的远端论文
+      merged.push(JSON.parse(JSON.stringify(rp)));
+    }
+  });
+  return merged;
+}
+
+// ==================== EXPORT / BACKUP ====================
+async function downloadPdf(paperId) {
+  var p = PAPERS.find(x => x.id === paperId);
+  if (!p) return;
+  if (!p.hasPdf && !p.pdfUrl) { showToast("⚠️ 该论文没有 PDF"); return; }
+  try {
+    showToast("📥 正在准备下载...");
+    var blob = await loadPdfBlob(paperId);
+    if (!blob) { showToast("⚠️ 未找到 PDF 数据"); return; }
+    var safeName = (p.authors ? p.authors.split(",")[0].trim().split(" ").pop() : "paper") +
+      (p.year ? "_" + p.year : "") + "_" +
+      (p.title || "untitled").replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "_").slice(0, 60) + ".pdf";
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = safeName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("✅ 已下载: " + safeName);
+  } catch(e) { showToast("❌ 下载失败: " + e.message); }
+}
+
+async function downloadAllPdfs() {
+  var pdfPapers = PAPERS.filter(p => p.hasPdf || p.pdfUrl);
+  if (!pdfPapers.length) { showToast("⚠️ 没有可下载的 PDF"); return; }
+  showToast("📥 开始批量下载 " + pdfPapers.length + " 篇 PDF...");
+  var ok = 0, fail = 0;
+  for (var p of pdfPapers) {
+    try {
+      var blob = await loadPdfBlob(p.id);
+      if (!blob) { fail++; continue; }
+      var safeName = (p.authors ? p.authors.split(",")[0].trim().split(" ").pop() : "paper") +
+        (p.year ? "_" + p.year : "") + "_" +
+        (p.title || "untitled").replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "_").slice(0, 60) + ".pdf";
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = safeName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      ok++;
+      await new Promise(r => setTimeout(r, 500)); // 间隔避免浏览器拦截
+    } catch(e) { fail++; console.warn("Download fail:", p.id, e); }
+  }
+  showToast("✅ 下载完成: " + ok + " 篇成功" + (fail ? ", " + fail + " 篇失败" : ""));
+}
+
+// ==================== SYNC ====================
+registerSyncApp({
+  id: "papers", gistFile: PAPERS_GIST_FILE, syncTsKey: "fsi_papers_last_sync_ts",
+  createGistDescription: "FSI Paper Reader Sync",
+  getLocalData: () => {
+    // Include close-reading cache in sync data
+    let crCache = {};
+    try { crCache = JSON.parse(localStorage.getItem("fsi_cr_cache") || "{}"); } catch(e) {}
+    return { papers: PAPERS, folders: FolderManager.getFolders(), closeReading: crCache, deletedIds: getDeletedIds() };
+  },
+  applyRemoteData: (remote) => {
+    // 合并删除列表：本地 + 远端取并集
+    if (remote.deletedIds && Array.isArray(remote.deletedIds)) {
+      var localDel = getDeletedIds();
+      var merged = [...new Set([...localDel, ...remote.deletedIds])];
+      saveDeletedIds(merged);
+    }
+    var allDeletedIds = new Set(getDeletedIds());
+    if (remote.papers) {
+      // 合并前过滤掉已删除的论文
+      var remotePapers = remote.papers.filter(function(p) { return !allDeletedIds.has(p.id); });
+      PAPERS = mergePapers(PAPERS, remotePapers);
+      // 本地也过滤掉已删除的
+      PAPERS = PAPERS.filter(function(p) { return !allDeletedIds.has(p.id); });
+    }
+    if (remote.folders) FolderManager.loadFolders(FolderManager.mergeFolders(FolderManager.getFolders(), remote.folders));
+    // Merge close-reading cache: keep local entries, add remote ones that are missing or newer
+    if (remote.closeReading) {
+      let localCR = {};
+      try { localCR = JSON.parse(localStorage.getItem("fsi_cr_cache") || "{}"); } catch(e) {}
+      for (const paperId in remote.closeReading) {
+        if (!localCR[paperId] || localCR[paperId].length < remote.closeReading[paperId].length) {
+          localCR[paperId] = remote.closeReading[paperId];
+        }
+      }
+      try { localStorage.setItem("fsi_cr_cache", JSON.stringify(localCR)); } catch(e) {}
+    }
+    savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  },
+  onSyncComplete: () => {
+    FolderManager.renderFolderTree(PAPERS);
+    renderPaperList(); updateStats();
+    if (currentPaperId) {
+      const p = PAPERS.find(x => x.id === currentPaperId);
+      if (p) {
+        // Update paper header (tags, readingLevel, reason, abstract) without destroying PDF viewer
+        const headerEl = document.querySelector(".paper-header");
+        if (headerEl) {
+          // Re-render the full detail view to pick up synced changes
+          renderPaperDetail(currentPaperId);
+        }
+        NotesPanel.loadNotes(p.id, p.notes || [], {title: p.title, authors: p.authors, year: p.year});
+        PdfViewer.renderHighlights((p.notes||[]).filter(n => n.highlightRects).map(n => ({
+          pageNum: n.pageNum, rects: n.highlightRects, color: n.color || "rgba(251,191,36,0.3)"
+        })));
+        if (window.CloseReading) { CloseReading.loadPaper(currentPaperId); CloseReading.renderPanel(); }
+      }
+    }
+  }
+});
+
+// ==================== VOCAB BRIDGE ====================
+async function loadVocabCategories() {
+  if (!isGHConnected()) return [];
+  try { const g = await ghAPI("https://api.github.com/gists/"+getGHGistId()); const f=g.files[VOCAB_GIST_FILE]; return f ? JSON.parse(f.content).vocab||[] : []; } catch(e) { return []; }
+}
+async function addWordToVocab(word,meaning,ctx,catId) {
+  if (!isGHConnected()) throw new Error("需先连接云同步");
+  const gid=getGHGistId(), g=await ghAPI("https://api.github.com/gists/"+gid), f=g.files[VOCAB_GIST_FILE];
+  if (!f) throw new Error("词库不存在"); const d=JSON.parse(f.content), c=(d.vocab||[]).find(x=>x.id===catId);
+  if (!c) throw new Error("分类不存在"); if (c.words.some(w=>w[0].toLowerCase()===word.toLowerCase())) throw new Error("已存在: "+word);
+  c.words.push([word,meaning,ctx]); d.ts=Date.now();
+  await ghAPI("https://api.github.com/gists/"+gid,{method:"PATCH",body:JSON.stringify({files:{[VOCAB_GIST_FILE]:{content:JSON.stringify(d)}}})});
+}
+
+// ==================== UI ====================
+function updateStats() {
+  document.getElementById("statPapers").textContent = PAPERS.length;
+  document.getElementById("statNotes").textContent = PAPERS.reduce((s,p) => s + (p.notes||[]).length, 0);
+}
+
+// ==================== INLINE EDITING (tags, level, reason, summary) ====================
+function _savePaperField(paperId, field, value) {
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  p[field] = value; p.updatedAt = Date.now();
+  savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  renderSortFilterBar(); renderPaperList();
+  debouncedPush("编辑" + field);
+}
+
+// --- Category Tags ---
+function removeTag(paperId, tag) {
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  p.categoryTags = (p.categoryTags||[]).filter(t => t !== tag);
+  p.updatedAt = Date.now(); savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  renderSortFilterBar(); renderPaperList(); renderPaperDetail(paperId);
+  debouncedPush("删除标签");
+}
+
+function openAddTagDialog(paperId) {
+  // Remove old dialog if exists
+  document.getElementById("addTagDialog")?.remove();
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  var existing = p.categoryTags || [];
+  var allTags = {};
+  PAPERS.forEach(pp => (pp.categoryTags||[]).forEach(t => { allTags[t] = (allTags[t]||0) + 1; }));
+  var available = Object.entries(allTags).filter(([t]) => !existing.includes(t)).sort((a,b) => b[1] - a[1]);
+
+  var overlay = document.createElement("div");
+  overlay.className = "modal-overlay"; overlay.id = "addTagDialog";
+  overlay.style.display = "flex";
+  var html = '<div class="modal" style="width:380px">';
+  html += '<h3>添加标签</h3>';
+  // Show current tags
+  if (existing.length) {
+    html += '<div class="field"><label>当前标签</label><div class="existing-tags-pick">';
+    existing.forEach(t => { html += '<span class="pick-tag-chip active">#'+esc(t)+'</span>'; });
+    html += '</div></div>';
+  }
+  html += '<div class="field"><label>输入新标签（逗号分隔可批量添加）</label><div style="display:flex;gap:6px"><input id="newTagInput" placeholder="标签1, 标签2, ..." style="flex:1" onkeydown="if(event.key===\'Enter\')confirmAddTag(\''+paperId+'\')"><button class="btn primary" onclick="confirmAddTag(\''+paperId+'\')">添加</button></div></div>';
+  if (available.length) {
+    html += '<div class="field"><label>点选已有标签（可多选）</label><div class="existing-tags-pick" id="pickTagsArea">';
+    available.forEach(([tag, count]) => {
+      html += '<span class="pick-tag-chip" onclick="pickExistingTag(\''+paperId+'\',\''+esc(tag).replace(/'/g,"\\'")+'\')">#'+esc(tag)+' <small>'+count+'</small></span>';
+    });
+    html += '</div></div>';
+  }
+  html += '<div class="modal-actions"><button class="btn" onclick="closeAddTagDialog(\''+paperId+'\')">完成</button></div>';
+  html += '</div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById("newTagInput").focus(), 50);
+}
+
+function confirmAddTag(paperId) {
+  var input = document.getElementById("newTagInput");
+  var tags = input.value.split(",").map(t => t.trim()).filter(Boolean);
+  if (!tags.length) return;
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  if (!p.categoryTags) p.categoryTags = [];
+  tags.forEach(tag => { if (!p.categoryTags.includes(tag)) p.categoryTags.push(tag); });
+  p.updatedAt = Date.now(); savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  renderSortFilterBar(); renderPaperList();
+  // Refresh dialog to show updated state
+  openAddTagDialog(paperId);
+  debouncedPush("添加标签");
+}
+
+function pickExistingTag(paperId, tag) {
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  if (!p.categoryTags) p.categoryTags = [];
+  if (!p.categoryTags.includes(tag)) p.categoryTags.push(tag);
+  p.updatedAt = Date.now(); savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  renderSortFilterBar(); renderPaperList();
+  // Refresh dialog to show updated state
+  openAddTagDialog(paperId);
+  debouncedPush("添加标签");
+}
+
+function closeAddTagDialog(paperId) {
+  document.getElementById("addTagDialog")?.remove();
+  renderPaperDetail(paperId);
+}
+
+// --- Reading Level ---
+function cycleReadingLevel(paperId) {
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  var levels = [null, "skim", "careful", "deep"];
+  var idx = levels.indexOf(p.readingLevel || null);
+  p.readingLevel = levels[(idx + 1) % levels.length];
+  p.updatedAt = Date.now(); savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  renderSortFilterBar(); renderPaperList(); renderPaperDetail(paperId);
+  debouncedPush("修改阅读等级");
+}
+
+// --- Inline text editing (reason, summary) ---
+function inlineEdit(paperId, field, el) {
+  if (el.querySelector("textarea, input")) return; // already editing
+  var p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  var oldVal = p[field] || "";
+  var isMultiline = (field === "summary" || field === "abstractEn" || field === "abstractZh");
+  var tag = isMultiline ? "textarea" : "input";
+  var inputEl = document.createElement(tag);
+  inputEl.className = "inline-edit-input";
+  inputEl.value = oldVal;
+  if (isMultiline) { inputEl.style.minHeight = "120px"; inputEl.style.resize = "vertical"; inputEl.style.lineHeight = "1.6"; }
+  el.textContent = "";
+  el.appendChild(inputEl);
+  inputEl.focus();
+
+  function save() {
+    var newVal = inputEl.value.trim();
+    _savePaperField(paperId, field, newVal || null);
+    renderPaperDetail(paperId);
+  }
+  inputEl.addEventListener("blur", save);
+  inputEl.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") { renderPaperDetail(paperId); }
+    if (e.key === "Enter" && !isMultiline) { e.preventDefault(); save(); }
+    if (e.key === "Enter" && e.ctrlKey && isMultiline) { e.preventDefault(); save(); }
+  });
+}
+
+var _currentSort = "manual"; // manual|year|author|journal|level|title
+var _currentFilterTags = []; // array of selected tags (AND/intersection logic)
+var _currentFilterLevel = null; // null|skim|careful|deep
+
+function _getReadingLevelBadge(level) {
+  if (level === "deep") return '<span class="rl-badge rl-deep">精读</span>';
+  if (level === "careful") return '<span class="rl-badge rl-careful">细读</span>';
+  if (level === "skim") return '<span class="rl-badge rl-skim">粗读</span>';
+  return '';
+}
+
+function _sortPapers(papers, sortBy) {
+  if (sortBy === "manual") return papers;
+  var sorted = papers.slice();
+  switch(sortBy) {
+    case "year": sorted.sort((a,b) => (b.year||0) - (a.year||0)); break;
+    case "author": sorted.sort((a,b) => (a.authors||"").localeCompare(b.authors||"")); break;
+    case "journal": sorted.sort((a,b) => (a.journal||"").localeCompare(b.journal||"")); break;
+    case "title": sorted.sort((a,b) => (a.title||"").localeCompare(b.title||"")); break;
+    case "level":
+      var order = {deep:0, careful:1, skim:2};
+      sorted.sort((a,b) => (order[a.readingLevel]??3) - (order[b.readingLevel]??3));
+      break;
+  }
+  return sorted;
+}
+
+function _getAllCategoryTags() {
+  var tags = {};
+  PAPERS.forEach(p => (p.categoryTags||[]).forEach(t => { tags[t] = (tags[t]||0) + 1; }));
+  return Object.entries(tags).sort((a,b) => b[1] - a[1]);
+}
+
+function renderPaperList() {
+  const list = document.getElementById("paperList");
+  const query = (document.getElementById("searchInput").value || "").trim().toLowerCase();
+  const folderId = FolderManager.getActiveFolder();
+  let filtered = FolderManager.filterPapers(PAPERS, folderId);
+  if (query) filtered = filtered.filter(p =>
+    (p.title||"").toLowerCase().includes(query) || (p.authors||"").toLowerCase().includes(query) ||
+    (p.tags||[]).some(t => t.toLowerCase().includes(query)) || (p.journal||"").toLowerCase().includes(query) ||
+    (p.categoryTags||[]).some(t => t.toLowerCase().includes(query))
+  );
+  // Filter by category tags (AND/intersection: paper must have ALL selected tags)
+  if (_currentFilterTags.length) filtered = filtered.filter(p => _currentFilterTags.every(t => (p.categoryTags||[]).includes(t)));
+  // Filter by reading level
+  if (_currentFilterLevel) filtered = filtered.filter(p => p.readingLevel === _currentFilterLevel);
+  // Sort
+  filtered = _sortPapers(filtered, _currentSort);
+
+  if (!filtered.length) { list.innerHTML = '<div style="padding:20px 14px;text-align:center;color:#475569;font-size:13px">'+(query||_currentFilterTags.length||_currentFilterLevel?'🔍 无匹配':'暂无论文')+'</div>'; return; }
+  list.innerHTML = filtered.map(p => {
+    const active = p.id === currentPaperId;
+    const catTags = (p.categoryTags||[]).slice(0,2).map(t => '<span class="cat-tag">#'+esc(t)+'</span>').join("");
+    const rlBadge = _getReadingLevelBadge(p.readingLevel);
+    return '<div class="paper-item'+(active?' active':'')+'" draggable="true" data-paper-id="'+p.id+'" onclick="selectPaper(\''+p.id+'\')">' +
+      '<div class="paper-title">'+esc(p.title)+'</div>' +
+      '<div class="paper-meta">'+esc(p.authors||"")+(p.year?' · '+p.year:'')+(p.journal?' · '+esc(p.journal):'')+'</div>' +
+      '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'+catTags+rlBadge+
+      ((p.pdfUrl||p.hasPdf)?'<span class="pdf-badge">📎PDF</span>':'') +
+      ((p.notes||[]).length?'<span class="note-count">📝'+(p.notes||[]).length+'</span>':'') +
+      '</div></div>';
+  }).join("");
+  setupPaperDrag();
+}
+
+function _toggleFilterTag(tag) {
+  var idx = _currentFilterTags.indexOf(tag);
+  if (idx >= 0) _currentFilterTags.splice(idx, 1);
+  else _currentFilterTags.push(tag);
+  renderPaperList(); renderSortFilterBar();
+}
+function _clearFilterTags() {
+  _currentFilterTags = [];
+  renderPaperList(); renderSortFilterBar();
+}
+
+function renderSortFilterBar() {
+  var el = document.getElementById("sortFilterBar");
+  if (!el) return;
+  var html = '';
+  // Tag chips (primary filter)
+  var allTags = _getAllCategoryTags();
+  if (allTags.length) {
+    html += '<div class="sf-tags">';
+    allTags.forEach(([tag, count]) => {
+      var isActive = _currentFilterTags.includes(tag);
+      html += '<span class="sf-tag-chip'+(isActive?' active':'')+'" onclick="_toggleFilterTag(\''+esc(tag).replace(/'/g,"\\'")+'\')">#'+esc(tag)+' <small>'+count+'</small></span>';
+    });
+    if (_currentFilterTags.length) {
+      html += '<span class="sf-tag-clear" onclick="_clearFilterTags()">✕ 清除</span>';
+    }
+    html += '</div>';
+  }
+  // Sort + Level in one row
+  html += '<div class="sf-controls">';
+  html += '<select onchange="_currentSort=this.value;renderPaperList()">';
+  [["manual","排序: 手动"],["year","排序: 年份↓"],["author","排序: 作者"],["journal","排序: 期刊"],["title","排序: 标题"],["level","排序: 阅读等级"]].forEach(([v,l]) => {
+    html += '<option value="'+v+'"'+(_currentSort===v?' selected':'')+'>'+l+'</option>';
+  });
+  html += '</select>';
+  html += '<select onchange="_currentFilterLevel=this.value||null;renderPaperList()">';
+  html += '<option value="">等级: 全部</option>';
+  [["deep","精读"],["careful","细读"],["skim","粗读"]].forEach(([v,l]) => {
+    html += '<option value="'+v+'"'+(_currentFilterLevel===v?' selected':'')+'>'+l+'</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function setupPaperDrag() {
+  let dragSrcId = null;
+  document.querySelectorAll(".paper-item[draggable]").forEach(item => {
+    item.addEventListener("dragstart", function(e) {
+      dragSrcId = this.dataset.paperId;
+      this.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", dragSrcId);
+    });
+    item.addEventListener("dragend", function() {
+      this.classList.remove("dragging");
+      document.querySelectorAll(".paper-item.drag-over").forEach(el => el.classList.remove("drag-over"));
+    });
+    item.addEventListener("dragover", function(e) {
+      e.preventDefault(); e.dataTransfer.dropEffect = "move";
+      this.classList.add("drag-over");
+    });
+    item.addEventListener("dragleave", function() { this.classList.remove("drag-over"); });
+    item.addEventListener("drop", function(e) {
+      e.preventDefault(); this.classList.remove("drag-over");
+      const targetId = this.dataset.paperId;
+      if (!dragSrcId || !targetId || dragSrcId === targetId) return;
+      const srcIdx = PAPERS.findIndex(p => p.id === dragSrcId);
+      const tgtIdx = PAPERS.findIndex(p => p.id === targetId);
+      if (srcIdx < 0 || tgtIdx < 0) return;
+      const moved = PAPERS.splice(srcIdx, 1)[0];
+      PAPERS.splice(tgtIdx, 0, moved);
+      savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+      renderPaperList();
+      debouncedPush("论文排序");
+    });
+  });
+}
+
+function selectPaper(id) { currentPaperId = id; renderPaperList(); renderPaperDetail(id); }
+
+function formatText(t) {
+  if (!t) return "";
+  return esc(t).replace(/\*\*(.*?)\*\*/g,'<span class="key-label">$1</span>').replace(/\n- /g,'<br>• ').replace(/\n/g,'<br>');
+}
+
+function renderPaperDetail(id) {
+  const p = PAPERS.find(x => x.id === id);
+  if (!p) { renderWelcome(); return; }
+  const content = document.getElementById("mainContent");
+  const hasPdf = p.pdfUrl || p.hasPdf;
+
+  // Paper header
+  let html = '<div class="paper-header">';
+  html += '<h2>'+esc(p.title)+'</h2>';
+  html += '<div class="meta-line">'+esc(p.authors||"")+(p.year?' · '+p.year:'')+(p.journal?' · '+esc(p.journal):'')+(p.doi?' · <a href="'+esc(p.doi)+'" target="_blank">DOI ↗</a>':'')+
+    ' <button class="btn" style="margin-left:8px" onclick="openEditPaperModal(\''+p.id+'\')">✏️ 编辑</button>'+
+    ' <button class="btn" onclick="window.open(\'https://scholar.google.com/scholar?q=\'+encodeURIComponent(\''+esc(p.title).replace(/'/g,"\\'")+'\'),\'_blank\')">🎓 Cite</button>'+
+    (hasPdf ? ' <button class="btn" onclick="downloadPdf(\''+p.id+'\')">📥 下载PDF</button>' : '') +
+    ' <button class="btn danger" onclick="deletePaper(\''+p.id+'\')">🗑 删除</button></div>';
+  if (p.tags && p.tags.length) html += '<div class="tag-row">'+p.tags.map(t=>'<span class="tag-pill">'+esc(t)+'</span>').join("")+'</div>';
+  // Category tags + reading level + reading reason (all in one row)
+  html += '<div class="tag-row inline-tags" style="gap:5px;align-items:center;flex-wrap:wrap">';
+  (p.categoryTags||[]).forEach(t => {
+    html += '<span class="cat-tag-pill">#'+esc(t)+' <span class="tag-x" onclick="event.stopPropagation();removeTag(\''+p.id+'\',\''+esc(t).replace(/'/g,"\\'")+'\')" title="移除标签">✕</span></span>';
+  });
+  html += '<span class="add-tag-btn" onclick="openAddTagDialog(\''+p.id+'\')" title="添加标签">+ 标签</span>';
+  // Reading level (click to cycle)
+  var rlLabels = {deep:'精读', careful:'细读', skim:'粗读'};
+  if (p.readingLevel) {
+    html += '<span class="rl-badge-detail rl-'+p.readingLevel+'" style="cursor:pointer" onclick="cycleReadingLevel(\''+p.id+'\')" title="点击切换等级">'+rlLabels[p.readingLevel]+'</span>';
+  } else {
+    html += '<span class="rl-set-btn" onclick="cycleReadingLevel(\''+p.id+'\')" title="设置阅读等级">设置等级</span>';
+  }
+  // Reading reason inline (same row, separated by ·)
+  html += '<span class="rl-reason-inline" ondblclick="inlineEdit(\''+p.id+'\',\'readingReason\',this)" title="双击编辑理由">'+(p.readingReason ? '· 💡 '+esc(p.readingReason) : '<i style="opacity:0.3">· 💡 双击添加理由</i>')+'</span>';
+  html += '</div>';
+  html += '</div>';
+
+  // 3-Column layout: 摘要 | 总结 | 引用
+  html += '<div class="detail-columns">';
+
+  // Column 1: 摘要 (Abstract — EN + ZH)
+  html += '<div class="detail-col"><div class="detail-col-header">📄 摘要</div><div class="detail-col-body">';
+  html += '<div class="abstract-section">';
+  html += '<div class="abstract-block" ondblclick="inlineEdit(\''+p.id+'\',\'abstractEn\',this)" title="双击编辑英文摘要">';
+  if (p.abstractEn) { html += '<div class="abstract-label">English</div>' + formatText(p.abstractEn); }
+  else { html += '<i style="opacity:0.4">双击添加英文摘要</i>'; }
+  html += '</div>';
+  html += '<div class="abstract-block" ondblclick="inlineEdit(\''+p.id+'\',\'abstractZh\',this)" title="双击编辑中文摘要">';
+  if (p.abstractZh) { html += '<div class="abstract-label">中文</div>' + formatText(p.abstractZh); }
+  else { html += '<i style="opacity:0.4">双击添加中文摘要</i>'; }
+  html += '</div>';
+  html += '</div></div></div>';
+
+  // Column 2: 总结 (Summary + Sections)
+  html += '<div class="detail-col"><div class="detail-col-header">📋 总结</div><div class="detail-col-body">';
+  html += '<div class="summary-editable" ondblclick="inlineEdit(\''+p.id+'\',\'summary\',this)" title="双击编辑总结">'+(p.summary ? formatText(p.summary) : '<i style="opacity:0.4">双击添加总结</i>')+'</div>';
+  var sLen = (p.sections||[]).length;
+  (p.sections||[]).forEach((s,i) => {
+    html += '<div class="section-card"><div class="section-header" onclick="this.parentElement.classList.toggle(\'open\')">' +
+      '<span class="icon">'+(s.icon||'📑')+'</span>' +
+      '<span class="title" ondblclick="event.stopPropagation();renameSectionInline(\''+p.id+'\','+i+',this)" title="双击改名">'+esc(s.title)+'</span>' +
+      '<span class="section-actions">' +
+      (i > 0 ? '<span class="sec-move" onclick="event.stopPropagation();moveSectionUp(\''+p.id+'\','+i+')" title="上移">▲</span>' : '') +
+      (i < sLen-1 ? '<span class="sec-move" onclick="event.stopPropagation();moveSectionDown(\''+p.id+'\','+i+')" title="下移">▼</span>' : '') +
+      '</span>' +
+      '<span class="arrow">▶</span></div>' +
+      '<div class="section-body"><div class="section-content-editable" ondblclick="editSectionContent(\''+p.id+'\','+i+',this)" title="双击编辑内容">'+formatText(s.content)+'</div>' +
+      '<div style="text-align:right;margin-top:4px"><button class="btn danger" style="font-size:10px" onclick="deleteSection(\''+p.id+'\','+i+')">删除</button></div></div></div>';
+  });
+  html += '<button class="ref-add-btn" onclick="openAddSectionModal()">+ 板块</button>';
+  html += '</div></div>';
+
+  // Column 3: 引用 (References + Citations, tabbed)
+  var refTab = (window._refTab && window._refTab[p.id]) || 'references';
+  const hasRefs = (p.references||[]).length;
+  const hasCites = (p.citations||[]).length;
+  html += '<div class="detail-col"><div class="detail-col-header ref-tab-header">';
+  html += '<span class="ref-tab'+(refTab==='references'?' active':'')+'" onclick="window._refTab=window._refTab||{};window._refTab[\''+p.id+'\']=\'references\';renderPaperDetail(\''+p.id+'\')">📖 引用 <small>'+(hasRefs?p.references.length:'0')+'</small></span>';
+  html += '<span class="ref-tab'+(refTab==='citations'?' active':'')+'" onclick="window._refTab=window._refTab||{};window._refTab[\''+p.id+'\']=\'citations\';renderPaperDetail(\''+p.id+'\')">🎓 被引 <small>'+(hasCites?p.citations.length:'0')+'</small></span>';
+  if (refTab === 'references') {
+    html += '<button class="btn" onclick="autoFetchRefs(\''+p.id+'\')" title="自动获取引用列表 (CrossRef)">⚡ 获取</button>';
+    html += '<button class="btn" onclick="searchScholarRefs(\''+p.id+'\')" title="在Scholar搜索" style="font-size:9px">🔍</button>';
+  } else {
+    html += '<button class="btn" onclick="autoFetchCitations(\''+p.id+'\')" title="自动获取被引列表 (Semantic Scholar)">⚡ 获取</button>';
+    html += '<button class="btn" onclick="searchScholarCitations(\''+p.id+'\')" title="在Scholar搜索" style="font-size:9px">🔍</button>';
+  }
+  html += '</div><div class="detail-col-body" id="refsBody">';
+  if (refTab === 'references') {
+    if (hasRefs) {
+      p.references.forEach((r,i) => {
+        const url = r.url || ('https://scholar.google.com/scholar?q='+encodeURIComponent(r.title));
+        html += '<div class="ref-item"><a href="'+esc(url)+'" target="_blank">'+esc(r.title)+'</a>';
+        if (r.authors||r.year) html += '<div class="ref-meta">'+esc(r.authors||'')+(r.year?' · '+r.year:'')+'</div>';
+        html += '<span class="ref-del" onclick="removeRef(\''+p.id+'\',\'references\','+i+')" title="删除">✕</span></div>';
+      });
+    } else {
+      html += '<div class="ref-empty">点击 ⚡获取<br><small>通过 DOI 从 CrossRef 获取</small></div>';
+    }
+    html += '<button class="ref-add-btn" onclick="openAddRefModal(\''+p.id+'\',\'references\')">+ 手动添加</button>';
+  } else {
+    if (hasCites) {
+      p.citations.forEach((c,i) => {
+        const url = c.url || ('https://scholar.google.com/scholar?q='+encodeURIComponent(c.title));
+        html += '<div class="ref-item"><a href="'+esc(url)+'" target="_blank">'+esc(c.title)+'</a>';
+        if (c.authors||c.year) html += '<div class="ref-meta">'+esc(c.authors||'')+(c.year?' · '+c.year:'')+'</div>';
+        html += '<span class="ref-del" onclick="removeRef(\''+p.id+'\',\'citations\','+i+')" title="删除">✕</span></div>';
+      });
+    } else {
+      html += '<div class="ref-empty">点击 ⚡获取<br><small>通过 Semantic Scholar 获取</small></div>';
+    }
+    html += '<button class="ref-add-btn" onclick="openAddRefModal(\''+p.id+'\',\'citations\')">+ 手动添加</button>';
+  }
+  html += '</div></div>';
+
+  html += '</div>';
+
+  // Panel layout container
+  html += '<div id="panelLayout"></div>';
+  content.innerHTML = html;
+
+  // Initialize PanelManager
+  PanelManager.init(document.getElementById("panelLayout"));
+
+  // Register PDF panel
+  PanelManager.registerPanel({
+    id: "pdf", title: "PDF", icon: "📄", defaultFlex: 3, minWidth: 300,
+    render: function(contentEl) {
+      contentEl.className = "panel-content pdf-column";
+      contentEl.id = "pdfContainer";
+      let pdfHtml = '<div class="pdf-toolbar"><button onclick="PdfViewer.zoomOut()" title="缩小">🔍-</button><span class="zoom-label" id="pdfZoomLabel">120%</span><button onclick="PdfViewer.zoomIn()" title="放大">🔍+</button><button onclick="PdfViewer.zoomFit()" title="适应宽度">↔</button><span class="page-label" id="pdfPageLabel"></span></div>';
+      if (hasPdf) {
+        pdfHtml += '<div class="pdf-pages" id="pdfPages"></div>';
+      } else {
+        pdfHtml += '<div class="pdf-drop-zone" id="pdfDropZone" onclick="document.getElementById(\'viewerPdfInput\').click()"><div class="drop-icon">📂</div><div>点击或拖拽 PDF 文件</div></div>';
+        pdfHtml += '<input type="file" id="viewerPdfInput" accept=".pdf" style="display:none" onchange="handleViewerPdf(this.files[0])">';
+      }
+      contentEl.innerHTML = pdfHtml;
+
+      PdfViewer.init(contentEl, document.getElementById("pdfPages"), {
+        onTextSelect: (text, pageNum, rects, yPos, mx, my) => {
+          NotesPanel.showContextMenu(mx, my, text, pageNum, rects, yPos);
+        },
+        onPageScroll: (pageNum, yPos) => {
+          NotesPanel.syncScroll(pageNum, yPos);
+          if (window.CloseReading) CloseReading.syncScroll(pageNum);
+        }
+      });
+      if (hasPdf) loadPaperPdf(p);
+
+      // Setup drop zone if no PDF
+      const dropZone = document.getElementById("pdfDropZone");
+      if (dropZone) {
+        dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+        dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+        dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("dragover"); const f=e.dataTransfer.files[0]; if(f&&f.type==="application/pdf") handleViewerPdf(f); });
+      }
+    },
+    onResize: () => PdfViewer.handleResize()
+  });
+
+  // Register Notes panel
+  PanelManager.registerPanel({
+    id: "notes", title: "笔记", icon: "📝", defaultFlex: 2, minWidth: 200,
+    render: function(contentEl) {
+      contentEl.className = "panel-content notes-column";
+      NotesPanel.init(contentEl, {
+        onNotesChange: (paperId, notes) => {
+          const paper = PAPERS.find(x => x.id === paperId);
+          if (paper) { paper.notes = notes; paper.updatedAt = Date.now(); savePapers(PAPERS); debouncedPush("编辑笔记"); updateStats(); }
+          PdfViewer.renderHighlights(notes.filter(n => n.highlightRects).map(n => ({
+            pageNum: n.pageNum, rects: n.highlightRects, color: n.color || "rgba(251,191,36,0.3)"
+          })));
+        },
+        onAddWord: (word, context) => {
+          openAddWordModal();
+          setTimeout(() => {
+            document.getElementById("awWord").value = word;
+            document.getElementById("awContext").value = context;
+          }, 100);
+        }
+      });
+      NotesPanel.renderPanel();
+      NotesPanel.loadNotes(p.id, p.notes || [], {title: p.title, authors: p.authors, year: p.year});
+    }
+  });
+
+  // Register Close Reading panel
+  PanelManager.registerPanel({
+    id: "closeReading", title: "精读", icon: "📖", defaultFlex: 2, minWidth: 200,
+    render: function(contentEl) {
+      CloseReading.init(contentEl, {
+        getPageText: (n) => PdfViewer.getPageText(n),
+        getPaperInfo: () => ({ id: p.id, title: p.title, numPages: PdfViewer.getNumPages() })
+      });
+      CloseReading.loadPaper(p.id);
+      CloseReading.renderPanel();
+    }
+  });
+
+  PanelManager.restoreState();
+  PanelManager.renderLayout();
+}
+
+async function loadPaperPdf(paper) {
+  try {
+    // Always clear previous PDF before loading a new one
+    PdfViewer.destroy();
+
+    // hasPdf (IndexedDB blob) takes priority over pdfUrl —
+    // user-uploaded blobs are more reliable than URL references
+    var loaded = false;
+    if (paper.hasPdf) {
+      var blob = await loadPdfBlob(paper.id);
+      if (!blob) {
+        // Local blob missing — try downloading from Gist
+        _showPdfLoading(paper);
+        blob = await downloadPdfFromGist(paper.id);
+      }
+      if (blob) {
+        await PdfViewer.loadFromBlob(blob);
+        loaded = true;
+      } else if (paper.pdfUrl) {
+        await PdfViewer.loadFromURL(paper.pdfUrl);
+        loaded = true;
+      } else {
+        _showPdfMissing(paper);
+      }
+    } else if (paper.pdfUrl) {
+      await PdfViewer.loadFromURL(paper.pdfUrl);
+      loaded = true;
+    }
+
+    if (!loaded) return;
+
+    // Render existing highlights
+    const hls = (paper.notes||[]).filter(n => n.highlightRects).map(n => ({
+      pageNum: n.pageNum, rects: n.highlightRects, color: n.color || "rgba(251,191,36,0.3)"
+    }));
+    if (hls.length) PdfViewer.renderHighlights(hls);
+  } catch(e) { console.warn("PDF load failed:", e); }
+}
+
+function _showPdfMissing(paper) {
+  var pagesEl = document.getElementById("pdfPages");
+  if (!pagesEl) return;
+  pagesEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;text-align:center;padding:40px">' +
+    '<div style="font-size:48px;margin-bottom:16px">📄</div>' +
+    '<div style="font-size:16px;font-weight:600;margin-bottom:8px">PDF 未找到</div>' +
+    '<div style="font-size:13px;color:#64748b;max-width:300px">云端没有找到此 PDF 文件。<br>请重新拖入 PDF，将自动同步到所有设备。</div>' +
+  '</div>';
+}
+
+function _showPdfLoading(paper) {
+  var pagesEl = document.getElementById("pdfPages");
+  if (!pagesEl) return;
+  pagesEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;text-align:center;padding:40px">' +
+    '<div style="font-size:48px;margin-bottom:16px">☁️</div>' +
+    '<div style="font-size:16px;font-weight:600;margin-bottom:8px">正在从云端下载 PDF...</div>' +
+    '<div style="font-size:13px;color:#64748b">首次在此设备打开，下载后会自动缓存</div>' +
+  '</div>';
+}
+
+async function handleViewerPdf(file) {
+  // Capture paper ID at call time to prevent race condition if user switches papers
+  var paperId = currentPaperId;
+  if (!file || !paperId) return;
+  try {
+    const blob = new Blob([await file.arrayBuffer()], {type:"application/pdf"});
+    await savePdfBlob(paperId, blob);
+    const p = PAPERS.find(x=>x.id===paperId);
+    if (p) { p.hasPdf=true; p.updatedAt=Date.now(); savePapers(PAPERS); }
+    renderPaperDetail(paperId);
+    showToast("📎 PDF 已关联，正在同步到云端...");
+    // Upload PDF to Gist FIRST, then push metadata — so other devices
+    // won't see hasPdf=true before the PDF file actually exists in Gist
+    await uploadPdfToGist(paperId, blob);
+    debouncedPush("关联PDF");
+  } catch(e) { showToast("❌ "+e.message); }
+}
+
+function renderWelcome() {
+  document.getElementById("mainContent").innerHTML = '<div style="padding:20px"><div class="welcome">' +
+    '<div class="empty-state"><div class="big">📄</div><h3>论文阅读器</h3><p>上传 PDF，选中文字做笔记</p></div>' +
+    '<div class="feature-grid">' +
+    '<div class="feature-card"><div class="icon">📎</div><h4>PDF 阅读</h4><p>上传 PDF，支持缩放和文字选中</p></div>' +
+    '<div class="feature-card"><div class="icon">📝</div><h4>锚点笔记</h4><p>选中文字添加笔记，笔记与阅读位置同步</p></div>' +
+    '<div class="feature-card"><div class="icon">🖍</div><h4>荧光笔</h4><p>重点内容一键高亮标记</p></div>' +
+    '<div class="feature-card"><div class="icon">📁</div><h4>文件夹分类</h4><p>按主题整理论文，快速找到目标</p></div>' +
+    '</div><div style="text-align:center;margin-top:24px"><button class="btn primary" style="padding:10px 24px;font-size:13px" onclick="openAddPaperModal()">+ 上传第一篇论文</button></div></div></div>';
+}
+
+// ==================== PAPER CRUD ====================
+function openAddPaperModal() {
+  document.getElementById("apError").style.display="none";
+  const z = document.getElementById("pdfUploadZone");
+  z.innerHTML = '<div style="font-size:36px;margin-bottom:8px">📎</div><div style="font-size:14px;font-weight:600">点击选择 PDF 文件</div><div style="font-size:11px;margin-top:4px;color:#64748b">或拖拽文件到此处，支持多选</div>';
+  z.classList.remove("has-file");
+  document.getElementById("apPdfFile").value="";
+  showModal("addPaperModal");
+  z.ondragover = e => { e.preventDefault(); z.style.borderColor="#38bdf8"; };
+  z.ondragleave = () => z.style.borderColor="";
+  z.ondrop = e => { e.preventDefault(); z.style.borderColor=""; const files=[...e.dataTransfer.files].filter(f=>f.type==="application/pdf"); if(files.length) addPapersFromFiles(files); };
+}
+function handlePdfSelect(input) { const files=[...input.files].filter(f=>f.type==="application/pdf"); if(files.length) addPapersFromFiles(files); }
+async function addPapersFromFiles(files) {
+  const z = document.getElementById("pdfUploadZone");
+  z.innerHTML = '⏳ 导入 '+files.length+' 个文件...'; z.classList.add("has-file");
+  for (const f of files) {
+    const id=uid(), title=f.name.replace(/\.pdf$/i,"").replace(/[_-]/g," ").trim();
+    const paper = { id, title, authors:"", year:null, journal:"", doi:"", tags:[], summary:"", sections:[], notes:[], hasPdf:true, addedAt:Date.now(), updatedAt:Date.now() };
+    try {
+      var blob = new Blob([await f.arrayBuffer()],{type:"application/pdf"});
+      await savePdfBlob(id, blob);
+      // Upload PDF to Gist FIRST before syncing metadata
+      await uploadPdfToGist(id, blob);
+    } catch(e) { paper.hasPdf=false; }
+    PAPERS.unshift(paper);
+  }
+  savePapers(PAPERS); window._PAPERS_REF=PAPERS; closeModal("addPaperModal");
+  FolderManager.renderFolderTree(PAPERS); renderPaperList(); updateStats();
+  selectPaper(PAPERS[0].id); showToast("✅ 已添加 "+files.length+" 篇"); debouncedPush("添加论文");
+}
+
+function openEditPaperModal(id) {
+  const p=PAPERS.find(x=>x.id===id); if(!p) return; editPaperId=id;
+  document.getElementById("epTitle").value=p.title||""; document.getElementById("epAuthors").value=p.authors||"";
+  document.getElementById("epYear").value=p.year||""; document.getElementById("epJournal").value=p.journal||"";
+  document.getElementById("epDoi").value=p.doi||""; document.getElementById("epTags").value=(p.tags||[]).join(", ");
+  document.getElementById("epFolder").innerHTML=FolderManager.renderFolderPicker(p.folderId);
+  document.getElementById("epError").style.display="none"; showModal("editPaperModal");
+}
+function submitEditPaper() {
+  const p=PAPERS.find(x=>x.id===editPaperId); if(!p) return;
+  const title=document.getElementById("epTitle").value.trim();
+  if(!title){document.getElementById("epError").textContent="标题不能为空";document.getElementById("epError").style.display="block";return;}
+  p.title=title; p.authors=document.getElementById("epAuthors").value.trim();
+  p.year=parseInt(document.getElementById("epYear").value)||null; p.journal=document.getElementById("epJournal").value.trim();
+  p.doi=document.getElementById("epDoi").value.trim(); p.tags=document.getElementById("epTags").value.split(",").map(t=>t.trim()).filter(Boolean);
+  p.folderId=document.getElementById("epFolder").value||null;
+  p.updatedAt=Date.now();
+  savePapers(PAPERS); window._PAPERS_REF=PAPERS; closeModal("editPaperModal");
+  FolderManager.renderFolderTree(PAPERS); renderSortFilterBar(); renderPaperList(); renderPaperDetail(editPaperId);
+  showToast("✅ 已保存"); debouncedPush("编辑论文信息");
+}
+function deletePaper(id) {
+  if(!confirm("确定删除这篇论文及所有笔记？")) return;
+  // 记录删除，防止同步时复活
+  var deleted = getDeletedIds();
+  if (!deleted.includes(id)) { deleted.push(id); saveDeletedIds(deleted); }
+  deletePdfBlob(id); deletePdfFromGist(id); PAPERS=PAPERS.filter(p=>p.id!==id); savePapers(PAPERS); window._PAPERS_REF=PAPERS;
+  if(currentPaperId===id){currentPaperId=null;renderWelcome();}
+  FolderManager.renderFolderTree(PAPERS); renderPaperList(); updateStats(); showToast("已删除"); debouncedPush("删除论文");
+}
+
+// ==================== SECTIONS ====================
+function openAddSectionModal() { ["asTitle","asIcon","asContent"].forEach(id=>document.getElementById(id).value=""); document.getElementById("asError").style.display="none"; showModal("addSectionModal"); }
+function submitAddSection() {
+  const title=document.getElementById("asTitle").value.trim();
+  if(!title){document.getElementById("asError").textContent="请输入标题";document.getElementById("asError").style.display="block";return;}
+  const p=PAPERS.find(x=>x.id===currentPaperId); if(!p) return;
+  if(!p.sections) p.sections=[];
+  p.sections.push({title,icon:document.getElementById("asIcon").value.trim()||"📑",content:document.getElementById("asContent").value.trim()});
+  p.updatedAt=Date.now(); savePapers(PAPERS); closeModal("addSectionModal"); renderPaperDetail(currentPaperId); showToast("✅ 已添加"); debouncedPush("添加笔记章节");
+}
+function deleteSection(paperId,idx) {
+  const p=PAPERS.find(x=>x.id===paperId); if(!p||!p.sections) return;
+  if(!confirm('删除"'+p.sections[idx].title+'"?')) return;
+  p.sections.splice(idx,1); p.updatedAt=Date.now(); savePapers(PAPERS); renderPaperDetail(paperId); debouncedPush("删除笔记章节");
+}
+function moveSectionUp(paperId,idx) {
+  var p=PAPERS.find(x=>x.id===paperId); if(!p||!p.sections||idx<=0) return;
+  var tmp=p.sections[idx-1]; p.sections[idx-1]=p.sections[idx]; p.sections[idx]=tmp;
+  p.updatedAt=Date.now(); savePapers(PAPERS); renderPaperDetail(paperId); debouncedPush("调整板块顺序");
+}
+function moveSectionDown(paperId,idx) {
+  var p=PAPERS.find(x=>x.id===paperId); if(!p||!p.sections||idx>=p.sections.length-1) return;
+  var tmp=p.sections[idx+1]; p.sections[idx+1]=p.sections[idx]; p.sections[idx]=tmp;
+  p.updatedAt=Date.now(); savePapers(PAPERS); renderPaperDetail(paperId); debouncedPush("调整板块顺序");
+}
+function renameSectionInline(paperId, idx, el) {
+  if (el.querySelector("input")) return;
+  var p = PAPERS.find(x => x.id === paperId); if (!p||!p.sections) return;
+  var oldTitle = p.sections[idx].title;
+  var input = document.createElement("input");
+  input.className = "inline-edit-input";
+  input.value = oldTitle;
+  input.style.fontSize = "12px"; input.style.fontWeight = "600";
+  el.textContent = ""; el.appendChild(input); input.focus(); input.select();
+  function save() {
+    var v = input.value.trim();
+    if (v && v !== oldTitle) { p.sections[idx].title = v; p.updatedAt = Date.now(); savePapers(PAPERS); debouncedPush("重命名板块"); }
+    renderPaperDetail(paperId);
+  }
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", function(e) { if(e.key==="Enter"){e.preventDefault();save();} if(e.key==="Escape") renderPaperDetail(paperId); });
+}
+function editSectionContent(paperId, idx, el) {
+  if (el.querySelector("textarea")) return;
+  var p = PAPERS.find(x => x.id === paperId); if (!p||!p.sections) return;
+  var oldContent = p.sections[idx].content || "";
+  var ta = document.createElement("textarea");
+  ta.className = "inline-edit-input";
+  ta.value = oldContent;
+  ta.style.minHeight = "120px"; ta.style.resize = "vertical"; ta.style.lineHeight = "1.6"; ta.style.whiteSpace = "pre-wrap";
+  el.textContent = ""; el.appendChild(ta); ta.focus();
+  function save() {
+    var v = ta.value.trim();
+    if (v !== oldContent) { p.sections[idx].content = v; p.updatedAt = Date.now(); savePapers(PAPERS); debouncedPush("编辑板块内容"); }
+    renderPaperDetail(paperId);
+  }
+  ta.addEventListener("blur", save);
+  ta.addEventListener("keydown", function(e) { if(e.key==="Enter"&&e.ctrlKey){e.preventDefault();save();} if(e.key==="Escape") renderPaperDetail(paperId); });
+}
+
+// ==================== SCHOLAR / CROSSREF / SEMANTIC SCHOLAR ====================
+
+// --- Manual Scholar search (fallback) ---
+function searchScholarRefs(paperId) {
+  const p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  window.open('https://scholar.google.com/scholar?q=' + encodeURIComponent(p.title), '_blank');
+}
+function searchScholarCitations(paperId) {
+  const p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  window.open('https://scholar.google.com/scholar?cites=&q=' + encodeURIComponent('"' + p.title + '"') + '&as_vis=1', '_blank');
+}
+
+// --- Extract DOI from paper ---
+function extractDOI(p) {
+  if (p.doi) {
+    const m = p.doi.match(/10\.\d{4,}\/[^\s]+/);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+// --- Auto-fetch references via CrossRef API (free, no key) ---
+async function autoFetchRefs(paperId) {
+  const p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  const doi = extractDOI(p);
+
+  const body = document.getElementById("refsBody");
+  if (body) body.innerHTML = '<div class="ref-empty">⏳ 正在从 CrossRef 获取引用列表...</div>';
+
+  try {
+    let refs = [];
+    // Method 1: CrossRef (via DOI)
+    if (doi) {
+      const cr = await fetch('https://api.crossref.org/works/' + encodeURIComponent(doi), {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (cr.ok) {
+        const data = await cr.json();
+        const crRefs = (data.message && data.message.reference) || [];
+        refs = crRefs.map(r => ({
+          title: r['article-title'] || r['volume-title'] || r.unstructured || '',
+          authors: r.author || '',
+          year: parseInt(r.year) || null,
+          doi: r.DOI || null,
+          url: r.DOI ? ('https://doi.org/' + r.DOI) : null
+        })).filter(r => r.title && r.title.length > 5);
+      }
+    }
+
+    // Method 2: Semantic Scholar (via DOI or title) if CrossRef didn't work
+    if (!refs.length) {
+      const paperId2 = doi ? ('DOI:' + doi) : null;
+      if (paperId2) {
+        const ss = await fetch('https://api.semanticscholar.org/graph/v1/paper/' + encodeURIComponent(paperId2) + '/references?fields=title,authors,year,externalIds,url&limit=100');
+        if (ss.ok) {
+          const data = await ss.json();
+          refs = (data.data || []).map(r => r.citedPaper).filter(cp => cp && cp.title).map(cp => ({
+            title: cp.title,
+            authors: (cp.authors || []).map(a => a.name).join(', '),
+            year: cp.year || null,
+            doi: (cp.externalIds && cp.externalIds.DOI) || null,
+            url: cp.url || (cp.externalIds && cp.externalIds.DOI ? 'https://doi.org/' + cp.externalIds.DOI : null)
+          }));
+        }
+      }
+    }
+
+    if (!refs.length) {
+      if (body) body.innerHTML = '<div class="ref-empty">未找到引用数据' + (doi ? '' : '<br><small>提示：添加 DOI 可提高获取成功率</small>') + '</div>';
+      showToast('未找到引用数据，可尝试 🔍 手动搜索');
+      return;
+    }
+
+    // Deduplicate by title similarity
+    const seen = new Set();
+    refs = refs.filter(r => {
+      const key = r.title.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 40);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+
+    // Save
+    if (!p.references) p.references = [];
+    // Merge: don't add duplicates
+    let added = 0;
+    refs.forEach(r => {
+      const exists = p.references.some(er => er.title.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,30) === r.title.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,30));
+      if (!exists) { p.references.push(r); added++; }
+    });
+    p.updatedAt = Date.now();
+    savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+    renderPaperDetail(paperId);
+    debouncedPush("获取引用文章");
+    showToast('✅ 获取到 ' + refs.length + ' 篇引用文章' + (added < refs.length ? '（' + (refs.length - added) + ' 篇已存在）' : ''));
+  } catch (e) {
+    console.error('Fetch refs failed:', e);
+    if (body) body.innerHTML = '<div class="ref-empty">❌ 获取失败: ' + esc(e.message) + '</div>';
+    showToast('❌ 获取引用失败');
+  }
+}
+
+// --- Auto-fetch citations via Semantic Scholar API (free, no key) ---
+async function autoFetchCitations(paperId) {
+  const p = PAPERS.find(x => x.id === paperId); if (!p) return;
+  const doi = extractDOI(p);
+
+  const body = document.getElementById("citesBody");
+  if (body) body.innerHTML = '<div class="ref-empty">⏳ 正在从 Semantic Scholar 获取被引列表...</div>';
+
+  try {
+    let cites = [];
+    // Try DOI first, then title search
+    const lookupId = doi ? ('DOI:' + doi) : null;
+
+    if (lookupId) {
+      const ss = await fetch('https://api.semanticscholar.org/graph/v1/paper/' + encodeURIComponent(lookupId) + '/citations?fields=title,authors,year,externalIds,url&limit=100');
+      if (ss.ok) {
+        const data = await ss.json();
+        cites = (data.data || []).map(c => c.citingPaper).filter(cp => cp && cp.title).map(cp => ({
+          title: cp.title,
+          authors: (cp.authors || []).map(a => a.name).join(', '),
+          year: cp.year || null,
+          doi: (cp.externalIds && cp.externalIds.DOI) || null,
+          url: cp.url || (cp.externalIds && cp.externalIds.DOI ? 'https://doi.org/' + cp.externalIds.DOI : null)
+        }));
+      }
+    }
+
+    // Fallback: search by title
+    if (!cites.length) {
+      const searchUrl = 'https://api.semanticscholar.org/graph/v1/paper/search?query=' + encodeURIComponent(p.title) + '&limit=1&fields=citations';
+      const sr = await fetch(searchUrl);
+      if (sr.ok) {
+        const sd = await sr.json();
+        if (sd.data && sd.data[0] && sd.data[0].paperId) {
+          const foundId = sd.data[0].paperId;
+          const ss2 = await fetch('https://api.semanticscholar.org/graph/v1/paper/' + foundId + '/citations?fields=title,authors,year,externalIds,url&limit=100');
+          if (ss2.ok) {
+            const data2 = await ss2.json();
+            cites = (data2.data || []).map(c => c.citingPaper).filter(cp => cp && cp.title).map(cp => ({
+              title: cp.title,
+              authors: (cp.authors || []).map(a => a.name).join(', '),
+              year: cp.year || null,
+              doi: (cp.externalIds && cp.externalIds.DOI) || null,
+              url: cp.url || (cp.externalIds && cp.externalIds.DOI ? 'https://doi.org/' + cp.externalIds.DOI : null)
+            }));
+          }
+        }
+      }
+    }
+
+    if (!cites.length) {
+      if (body) body.innerHTML = '<div class="ref-empty">未找到被引数据' + (doi ? '' : '<br><small>提示：添加 DOI 可提高获取成功率</small>') + '</div>';
+      showToast('未找到被引数据');
+      return;
+    }
+
+    // Deduplicate
+    const seen = new Set();
+    cites = cites.filter(c => {
+      const key = c.title.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 40);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+
+    // Save
+    if (!p.citations) p.citations = [];
+    let added = 0;
+    cites.forEach(c => {
+      const exists = p.citations.some(ec => ec.title.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,30) === c.title.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,30));
+      if (!exists) { p.citations.push(c); added++; }
+    });
+    p.updatedAt = Date.now();
+    savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+    renderPaperDetail(paperId);
+    debouncedPush("获取被引文章");
+    showToast('✅ 获取到 ' + cites.length + ' 篇被引文章' + (added < cites.length ? '（' + (cites.length - added) + ' 篇已存在）' : ''));
+  } catch (e) {
+    console.error('Fetch citations failed:', e);
+    if (body) body.innerHTML = '<div class="ref-empty">❌ 获取失败: ' + esc(e.message) + '</div>';
+    showToast('❌ 获取被引失败');
+  }
+}
+
+// --- Manual add/remove ---
+function removeRef(paperId, type, idx) {
+  const p = PAPERS.find(x => x.id === paperId);
+  if (!p || !p[type] || !p[type][idx]) return;
+  if (!confirm('删除 "' + p[type][idx].title + '"?')) return;
+  p[type].splice(idx, 1);
+  p.updatedAt = Date.now();
+  savePapers(PAPERS);
+  renderPaperDetail(paperId);
+  debouncedPush("删除引用/被引");
+}
+
+let _addRefPaperId = null, _addRefType = null;
+function openAddRefModal(paperId, type) {
+  _addRefPaperId = paperId; _addRefType = type;
+  ["arTitle","arAuthors","arYear","arUrl"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("arError").style.display = "none";
+  document.getElementById("addRefModalTitle").textContent = type === "references" ? "添加引用文章" : "添加被引文章";
+  showModal("addRefModal");
+}
+
+function submitAddRef() {
+  const title = document.getElementById("arTitle").value.trim();
+  if (!title) { document.getElementById("arError").textContent = "标题不能为空"; document.getElementById("arError").style.display = "block"; return; }
+  const p = PAPERS.find(x => x.id === _addRefPaperId); if (!p) return;
+  if (!p[_addRefType]) p[_addRefType] = [];
+  p[_addRefType].push({
+    title: title,
+    authors: document.getElementById("arAuthors").value.trim(),
+    year: parseInt(document.getElementById("arYear").value) || null,
+    url: document.getElementById("arUrl").value.trim() || null
+  });
+  p.updatedAt = Date.now(); savePapers(PAPERS);
+  closeModal("addRefModal"); renderPaperDetail(_addRefPaperId);
+  debouncedPush("添加引用/被引"); showToast("✅ 已添加");
+}
+
+// ==================== ADD WORD ====================
+async function openAddWordModal() {
+  ["awWord","awMeaning","awContext"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("awError").style.display="none";
+  const sel=document.getElementById("awCategory"); sel.innerHTML='<option>加载中...</option>';
+  showModal("addWordModal");
+  try { const cats=await loadVocabCategories(); sel.innerHTML=cats.length?cats.map(c=>'<option value="'+esc(c.id)+'">'+c.emoji+' '+esc(c.title)+'</option>').join(""):'<option>需先连接云同步</option>'; } catch(e) { sel.innerHTML='<option>加载失败</option>'; }
+}
+async function submitAddWord() {
+  const w=document.getElementById("awWord").value.trim(),m=document.getElementById("awMeaning").value.trim(),c=document.getElementById("awContext").value.trim(),cat=document.getElementById("awCategory").value,err=document.getElementById("awError");
+  if(!w||!m){err.textContent="单词和释义必填";err.style.display="block";return;} if(!cat){err.textContent="请选择分类";err.style.display="block";return;} err.style.display="none";
+  try { await addWordToVocab(w,m,c,cat); closeModal("addWordModal"); showToast("📚 已添加: "+w); } catch(e) { err.textContent=e.message; err.style.display="block"; }
+}
+
+// ==================== PDF 迁移（旧方案 → 新方案）====================
+// 自动检测旧方案的 PDF（存在主 Gist 里的 fsi_pdf_xxx.b64 文件），
+// 从本地 IndexedDB 读出来，重新上传到独立 public Gist，然后清理旧文件。
+async function migratePdfsToNewScheme() {
+  if (!isGHConnected()) return;
+  // 找出需要迁移的论文：有 hasPdf 但没有 pdfGistId
+  var toMigrate = PAPERS.filter(function(p) { return p.hasPdf && !p.pdfGistId; });
+  if (toMigrate.length === 0) return;
+
+  console.log("[pdf-migrate] Found " + toMigrate.length + " papers to migrate");
+  var migrated = 0;
+
+  for (var i = 0; i < toMigrate.length; i++) {
+    var paper = toMigrate[i];
+    try {
+      // 从本地 IndexedDB 读取 PDF blob
+      var blob = await loadPdfBlob(paper.id);
+      if (!blob) {
+        console.log("[pdf-migrate] Skipping " + paper.id + " — no local blob (will migrate from another device)");
+        continue;
+      }
+
+      console.log("[pdf-migrate] Migrating: " + paper.title + " (" + (blob.size/1024/1024).toFixed(1) + " MB)");
+
+      // 上传到新的独立 public Gist
+      var b64 = await _blobToBase64(blob);
+      var gist = await ghAPI("https://api.github.com/gists", {
+        method: "POST",
+        body: JSON.stringify({
+          description: "FSI PDF: " + paper.id,
+          public: true,
+          files: { "pdf.b64": { content: b64 } }
+        })
+      });
+
+      paper.pdfGistId = gist.id;
+      paper.updatedAt = Date.now();
+      migrated++;
+      console.log("[pdf-migrate] ✅ " + paper.title + " → gist " + gist.id);
+
+      // 清理旧文件（静默）
+      _cleanupOldPdfFile(paper.id);
+    } catch(e) {
+      console.warn("[pdf-migrate] Failed for " + paper.id + ":", e);
+    }
+  }
+
+  if (migrated > 0) {
+    savePapers(PAPERS);
+    debouncedPush("PDF迁移");
+    showToast("☁️ 已迁移 " + migrated + " 个 PDF 到新存储方案");
+  }
+
+  // 额外清理：检查主 Gist 里是否有残留的 fsi_pdf_*.b64 文件
+  try {
+    var gistId = getGHGistId();
+    var mainGist = await ghAPI("https://api.github.com/gists/" + gistId);
+    var filesToDelete = {};
+    var hasOldFiles = false;
+    for (var fname in mainGist.files) {
+      if (fname.startsWith("fsi_pdf_") && fname.endsWith(".b64")) {
+        filesToDelete[fname] = null;
+        hasOldFiles = true;
+      }
+    }
+    if (hasOldFiles) {
+      console.log("[pdf-migrate] Cleaning up old PDF files from main Gist:", Object.keys(filesToDelete));
+      await ghAPI("https://api.github.com/gists/" + gistId, {
+        method: "PATCH",
+        body: JSON.stringify({ files: filesToDelete })
+      });
+      console.log("[pdf-migrate] ✅ Main Gist cleaned");
+    }
+  } catch(e) { console.warn("[pdf-migrate] Cleanup failed:", e); }
+}
+
+// ==================== INIT ====================
+(async function init() {
+  renderNavTabs("reader");
+  setupModalOverlayClose();
+  FolderManager.init(document.getElementById("folderTree"), {
+    onFilterChange: () => renderPaperList()
+  });
+  // Auto-create "Introduction 叙事链" folder if papers reference it
+  const INTRO_FOLDER_ID = "f_intro_narrative";
+  if (PAPERS.some(p => p.folderId === INTRO_FOLDER_ID) && !FolderManager.getFolders().some(f => f.id === INTRO_FOLDER_ID)) {
+    const folders = FolderManager.getFolders();
+    folders.push({ id: INTRO_FOLDER_ID, name: "Introduction 叙事链", emoji: "📖", order: folders.length });
+    FolderManager.loadFolders(folders);
+    const wangPaper = PAPERS.find(p => p.id === "paper_wang_2022_jfm");
+    if (wangPaper && !wangPaper.folderId) { wangPaper.folderId = INTRO_FOLDER_ID; savePapers(PAPERS); }
+  }
+  FolderManager.renderFolderTree(PAPERS);
+  updateStats();
+  renderSortFilterBar();
+  renderPaperList();
+  PAPERS.length > 0 ? selectPaper(PAPERS[0].id) : renderWelcome();
+  await initSync();
+  // 同步初始化后，自动迁移旧方案 PDF（静默后台执行）
+  setTimeout(migratePdfsToNewScheme, 3000);
+})();
+</script>
+</body>
+</html>

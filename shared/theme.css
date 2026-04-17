@@ -1,0 +1,125 @@
+/* ==================== FSI 学术工具 - 共享主题 ==================== */
+
+/* Reset & Base */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: #0f172a; color: #e2e8f0; min-height: 100vh;
+}
+
+/* Shared animation */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ==================== Top Bar ==================== */
+.topbar {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-bottom: 1px solid #334155; padding: 10px 20px;
+  display: flex; align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 100; flex-wrap: wrap;
+}
+.topbar h1 { font-size: 18px; font-weight: 700; color: #f8fafc; white-space: nowrap; }
+.topbar .search-area { flex: 1; min-width: 180px; max-width: 360px; position: relative; }
+.topbar .search-box {
+  width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+  padding: 6px 10px 6px 30px; font-size: 13px; color: #f1f5f9; outline: none;
+}
+.topbar .search-box:focus { border-color: #38bdf8; }
+.topbar .search-box::placeholder { color: #64748b; }
+.topbar .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 13px; pointer-events: none; }
+
+/* Stats badges */
+.topbar .stats { display: flex; gap: 10px; }
+.stat-badge { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 4px 10px; font-size: 12px; color: #94a3b8; white-space: nowrap; }
+.stat-badge span { color: #38bdf8; font-weight: 700; font-size: 14px; margin-right: 2px; }
+
+/* Actions area */
+.actions { display: flex; gap: 5px; flex-wrap: wrap; }
+
+/* ==================== Buttons ==================== */
+.btn {
+  background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+  padding: 6px 12px; font-size: 13px; color: #94a3b8;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.btn:hover { background: #1e3a5f; color: #38bdf8; border-color: #38bdf8; }
+.btn.primary { background: #0c4a6e; color: #38bdf8; border-color: #0c4a6e; }
+.btn.primary:hover { background: #0369a1; }
+.btn.danger { color: #f87171; }
+.btn.danger:hover { background: #450a0a; border-color: #f87171; }
+.btn.green { color: #4ade80; border-color: #166534; }
+.btn.green:hover { background: #052e16; border-color: #4ade80; }
+.btn.active-sort { background: #1e3a5f; color: #38bdf8; border-color: #38bdf8; }
+.btn.quiz-btn { background: #4c1d95; color: #c4b5fd; border-color: #6d28d9; }
+.btn.quiz-btn:hover { background: #6d28d9; color: #ede9fe; }
+.sep { width: 1px; height: 22px; background: #334155; margin: 0 2px; }
+
+/* ==================== Nav Tabs ==================== */
+.nav-tabs {
+  display: flex; gap: 2px; background: #0f172a; border: 1px solid #334155;
+  border-radius: 8px; padding: 2px; margin-right: 8px;
+}
+.nav-tab {
+  padding: 5px 12px; font-size: 13px; color: #64748b; border-radius: 6px;
+  cursor: pointer; text-decoration: none; transition: all 0.15s; white-space: nowrap;
+}
+.nav-tab:hover { color: #e2e8f0; background: #1e293b; }
+.nav-tab.active { color: #38bdf8; background: #1e3a5f; font-weight: 600; }
+
+/* ==================== Modal ==================== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 1000; justify-content: center; align-items: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+  padding: 22px; width: 460px; max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal h2, .modal h3 { font-size: 16px; color: #f8fafc; margin-bottom: 14px; }
+.modal label { display: block; font-size: 12px; color: #64748b; margin: 8px 0 4px; }
+.modal input, .modal select, .modal textarea {
+  width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+  padding: 7px 10px; font-size: 13px; color: #f1f5f9; outline: none; font-family: inherit;
+}
+.modal input:focus, .modal textarea:focus { border-color: #38bdf8; }
+.modal textarea { resize: vertical; min-height: 80px; }
+.modal .btn-row, .modal .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.modal .err { color: #f87171; font-size: 12px; margin-top: 6px; display: none; }
+.modal .field { margin-bottom: 10px; }
+.modal .field label { margin-top: 0; }
+
+/* ==================== Sync UI ==================== */
+.connected-info {
+  background: #052e16; border: 1px solid #166534; border-radius: 8px;
+  padding: 10px; margin-bottom: 10px;
+}
+.connected-info .label { font-size: 12px; color: #4ade80; text-transform: uppercase; letter-spacing: 1px; }
+.connected-info .val { font-size: 12px; color: #bbf7d0; margin-top: 2px; word-break: break-all; }
+.sync-log {
+  background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+  padding: 8px 10px; font-size: 12px; color: #94a3b8;
+  max-height: 100px; overflow-y: auto; margin-top: 8px; white-space: pre-wrap;
+}
+
+/* ==================== Toast ==================== */
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+  padding: 10px 20px; font-size: 13px; color: #e2e8f0; z-index: 999;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* ==================== Shared Layout ==================== */
+.container { display: flex; min-height: calc(100vh - 48px); }
+.no-results { text-align: center; padding: 50px 20px; color: #475569; font-size: 14px; }
+.no-results .big { font-size: 36px; margin-bottom: 10px; }
+
+/* ==================== Responsive Base ==================== */
+@media (max-width: 768px) {
+  .topbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .container { flex-direction: column; }
+  .nav-tabs { order: -1; }
+}

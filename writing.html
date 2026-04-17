@@ -1,0 +1,2353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>学术工具 · 写作助手</title>
+<link rel="stylesheet" href="shared/theme.css?v=1773955514">
+<style>
+/* ==================== Writing Assistant Layout ==================== */
+.writing-container {
+  display: flex; flex-direction: column; height: calc(100vh - 52px);
+  padding: 12px 16px; gap: 10px;
+}
+.mode-tabs {
+  display: flex; gap: 2px; background: #0f172a; border: 1px solid #334155;
+  border-radius: 8px; padding: 2px; align-self: flex-start;
+}
+.mode-tab {
+  padding: 6px 16px; font-size: 13px; color: #64748b; border-radius: 6px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap; border: none; background: none;
+}
+.mode-tab:hover { color: #94a3b8; background: #1e293b; }
+.mode-tab.active { background: #0c4a6e; color: #38bdf8; }
+
+/* Panels */
+.writing-panel {
+  flex: 1; display: none; gap: 12px; min-height: 0;
+}
+.writing-panel.active { display: flex; }
+
+/* Translation Panel - left/right */
+.trans-left, .trans-right {
+  flex: 1; display: flex; flex-direction: column; gap: 8px;
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px;
+}
+.panel-label {
+  font-size: 13px; font-weight: 600; color: #94a3b8;
+  display: flex; align-items: center; gap: 6px;
+}
+.panel-label .badge {
+  font-size: 12px; background: #0c4a6e; color: #38bdf8; padding: 1px 6px;
+  border-radius: 4px; font-weight: 400;
+}
+.writing-ta {
+  flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+  padding: 12px; font-size: 14px; color: #e2e8f0; resize: none; outline: none;
+  font-family: 'Georgia', 'Noto Serif SC', serif; line-height: 1.7;
+}
+.writing-ta:focus { border-color: #38bdf8; }
+.writing-ta::placeholder { color: #475569; }
+.panel-actions {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.char-count { font-size: 12px; color: #475569; margin-left: auto; }
+
+/* LaTeX Panel - top/bottom */
+.latex-panel { flex-direction: column; }
+.latex-top {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.latex-mode-switch {
+  display: flex; gap: 2px; background: #0f172a; border: 1px solid #334155;
+  border-radius: 6px; padding: 2px;
+}
+.latex-mode-btn {
+  padding: 5px 12px; font-size: 13px; color: #64748b; border-radius: 4px;
+  cursor: pointer; border: none; background: none; transition: all 0.15s;
+}
+.latex-mode-btn:hover { color: #94a3b8; }
+.latex-mode-btn.active { background: #0c4a6e; color: #38bdf8; }
+.latex-io {
+  flex: 1; display: flex; gap: 12px; min-height: 0;
+}
+.latex-in, .latex-out {
+  flex: 1; display: flex; flex-direction: column; gap: 8px;
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px;
+}
+.latex-out .writing-ta {
+  font-family: 'Fira Code', 'Consolas', monospace; font-size: 14px; color: #4ade80;
+}
+
+/* Image upload zone */
+.img-upload-zone {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px;
+  background: #0f172a; border: 2px dashed #334155; border-radius: 10px;
+  cursor: pointer; transition: all 0.2s; min-height: 200px;
+}
+.img-upload-zone:hover { border-color: #38bdf8; background: #0f172a; }
+.img-upload-zone.has-image { border-style: solid; }
+.img-upload-zone img {
+  max-width: 100%; max-height: 300px; border-radius: 6px;
+}
+.img-upload-icon { font-size: 36px; }
+.img-upload-hint { font-size: 12px; color: #475569; }
+
+/* Loading spinner */
+.writing-loading {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #38bdf8;
+}
+.writing-loading::before {
+  content: ""; width: 14px; height: 14px; border: 2px solid #38bdf8;
+  border-top-color: transparent; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+/* spin animation in shared/theme.css */
+
+/* Settings modal */
+.settings-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
+  display: none; align-items: center; justify-content: center;
+}
+.settings-overlay.show { display: flex; }
+.settings-modal {
+  background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+  padding: 20px; width: 420px; max-width: 90vw;
+}
+.settings-modal h3 { font-size: 15px; margin-bottom: 14px; color: #f8fafc; }
+.settings-modal label { display: block; font-size: 13px; color: #94a3b8; margin: 10px 0 4px; }
+.settings-modal select, .settings-modal input[type="text"], .settings-modal input[type="password"] {
+  width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+  padding: 7px 10px; font-size: 14px; color: #e2e8f0; outline: none;
+}
+.settings-modal select:focus, .settings-modal input:focus { border-color: #38bdf8; }
+.settings-modal .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .writing-panel { flex-direction: column; }
+  .latex-io { flex-direction: column; }
+}
+
+/* Toast — uses shared .toast from theme.css + utils.js showToast() */
+
+/* Feature model tag */
+.feat-model-tag {
+  font-size: 11px; color: #64748b; background: #0f172a; border: 1px solid #334155;
+  border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+}
+.feat-model-tag:empty { display: none; }
+
+/* Anti-AI words list */
+.anti-ai-hint {
+  font-size: 12px; color: #475569; margin-top: 4px; line-height: 1.4;
+}
+
+/* ==================== Three-Column Tools Panel ==================== */
+.tools-layout {
+  display: flex; flex: 1; min-height: 0; overflow: hidden;
+}
+.tools-col {
+  display: flex; flex-direction: column; gap: 8px;
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px;
+  min-width: 0; overflow: hidden;
+}
+.tools-resize-handle {
+  width: 5px; flex-shrink: 0; background: #1e293b; cursor: col-resize;
+  transition: background 0.15s; position: relative; z-index: 5;
+  border-radius: 0;
+}
+.tools-resize-handle:hover, .tools-resize-handle.dragging { background: #38bdf8; }
+.tools-out-box {
+  display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: 1;
+}
+.tools-out-box .writing-ta { flex: 1; min-height: 60px; }
+.img-upload-zone.mini {
+  min-height: 100px; flex: none;
+}
+
+@media (max-width: 768px) {
+  .tools-layout { flex-direction: column; }
+  .tools-resize-handle { display: none; }
+}
+
+/* ==================== Translation Dictionary ==================== */
+.trans-dict-section {
+  border-top: 1px solid #334155; padding-top: 8px; margin-top: 4px;
+}
+.trans-dict-header {
+  display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+}
+.trans-dict-header .arrow { font-size: 12px; color: #64748b; transition: transform 0.2s; }
+.trans-dict-header .arrow.open { transform: rotate(90deg); }
+.trans-dict-header .dict-title { font-size: 13px; font-weight: 600; color: #94a3b8; flex: 1; }
+.trans-dict-header .dict-count { font-size: 12px; color: #475569; }
+.trans-dict-body { display: none; margin-top: 6px; }
+.trans-dict-body.open { display: block; }
+.dict-list {
+  max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  margin-bottom: 6px;
+}
+.dict-entry {
+  display: flex; align-items: center; gap: 4px; font-size: 13px;
+  padding: 3px 6px; border-radius: 4px; background: #0f172a;
+}
+.dict-entry:hover { background: #1a2540; }
+.dict-entry .dict-zh { color: #e2e8f0; min-width: 60px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dict-entry .dict-arrow { color: #475569; font-size: 12px; }
+.dict-entry .dict-en { color: #4ade80; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dict-entry .dict-del {
+  opacity: 0; color: #f87171; cursor: pointer; font-size: 12px; padding: 0 2px;
+}
+.dict-entry:hover .dict-del { opacity: 1; }
+.dict-add-row {
+  display: flex; gap: 4px; align-items: center;
+}
+.dict-add-row input {
+  flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 4px;
+  padding: 5px 8px; font-size: 13px; color: #e2e8f0; outline: none; min-width: 0;
+}
+.dict-add-row input:focus { border-color: #38bdf8; }
+.dict-add-row input::placeholder { color: #334155; }
+.dict-add-btn {
+  background: #0c4a6e; border: none; color: #38bdf8; font-size: 13px;
+  padding: 5px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.dict-add-btn:hover { background: #0369a1; }
+
+/* ==================== Outline Panel ==================== */
+.outline-container {
+  flex: 1; display: flex; gap: 12px; min-height: 0;
+}
+.outline-sidebar {
+  width: 220px; min-width: 180px; display: flex; flex-direction: column; gap: 8px;
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px;
+}
+.outline-sidebar-title {
+  font-size: 13px; font-weight: 600; color: #94a3b8;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.outline-project-list {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+}
+.outline-project-item {
+  padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  color: #94a3b8; border: 1px solid transparent; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+}
+.outline-project-item:hover { background: #0f172a; color: #e2e8f0; }
+.outline-project-item.active { background: #0c4a6e; color: #38bdf8; border-color: #0369a1; }
+.outline-project-item .proj-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-project-item .proj-del {
+  opacity: 0; font-size: 12px; color: #f87171; cursor: pointer; padding: 2px 4px;
+}
+.outline-project-item:hover .proj-del { opacity: 1; }
+.outline-project-item .proj-drag {
+  cursor: grab; color: #334155; font-size: 12px; padding: 0 2px; user-select: none;
+  opacity: 0; transition: opacity 0.15s;
+}
+.outline-project-item:hover .proj-drag { opacity: 1; }
+.outline-project-item .proj-drag:active { cursor: grabbing; }
+.outline-project-item.proj-dragging { opacity: 0.4; }
+.outline-project-item.proj-drag-over-top { border-top: 2px solid #38bdf8; }
+.outline-project-item.proj-drag-over-bottom { border-bottom: 2px solid #38bdf8; }
+.outline-main {
+  flex: 1; display: flex; flex-direction: column; gap: 8px;
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px;
+  min-height: 0;
+}
+.outline-main-header {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.outline-main-header h3 {
+  font-size: 14px; color: #f8fafc; margin: 0; flex: 1;
+}
+.outline-main-header .badge { font-size: 12px; background: #0c4a6e; color: #38bdf8; padding: 1px 6px; border-radius: 4px; }
+.outline-sections {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  padding-right: 4px;
+}
+.outline-empty {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  color: #475569; font-size: 13px; flex-direction: column; gap: 8px;
+}
+.outline-empty .big-icon { font-size: 48px; opacity: 0.3; }
+.outline-section {
+  border: 1px solid #334155; border-radius: 8px; overflow: hidden;
+  transition: border-color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.outline-section:hover { border-color: #475569; }
+.outline-section.editing { border-color: #38bdf8; }
+.outline-section.dragging { opacity: 0.4; }
+.outline-section.drag-over-top { border-top: 2px solid #38bdf8; }
+.outline-section.drag-over-bottom { border-bottom: 2px solid #38bdf8; }
+.section-header .sec-drag {
+  cursor: grab; color: #475569; font-size: 14px; padding: 0 2px; user-select: none;
+  transition: color 0.15s;
+}
+.section-header .sec-drag:hover { color: #94a3b8; }
+.section-header .sec-drag:active { cursor: grabbing; }
+.section-header {
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+  cursor: pointer; user-select: none; background: #0f172a;
+}
+.section-header .arrow {
+  font-size: 12px; color: #64748b; transition: transform 0.2s; width: 12px; text-align: center;
+}
+.section-header .arrow.open { transform: rotate(90deg); }
+.section-header .sec-title {
+  flex: 1; font-size: 13px; color: #e2e8f0; font-weight: 500;
+}
+.section-header .sec-level {
+  font-size: 11px; color: #475569; background: #1e293b; padding: 1px 6px; border-radius: 3px;
+}
+.section-header .sec-status {
+  font-size: 12px; width: 8px; height: 8px; border-radius: 50%;
+}
+.section-header .sec-status.empty { background: #334155; }
+.section-header .sec-status.partial { background: #f59e0b; }
+.section-header .sec-status.done { background: #4ade80; }
+.section-header .sec-actions {
+  display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s;
+}
+.section-header:hover .sec-actions { opacity: 1; }
+.section-header .sec-actions button {
+  background: none; border: none; color: #64748b; font-size: 13px;
+  cursor: pointer; padding: 2px 4px; border-radius: 3px;
+}
+.section-header .sec-actions button:hover { color: #e2e8f0; background: #334155; }
+.section-body {
+  display: none; padding: 0 10px 10px;
+}
+.section-body.open { display: block; }
+.section-body textarea {
+  width: 100%; min-height: 200px; background: #0f172a; border: 1px solid #334155;
+  border-radius: 6px; padding: 10px; font-size: 14px; color: #e2e8f0;
+  resize: vertical; outline: none; font-family: 'Georgia', 'Noto Serif SC', serif; line-height: 1.7;
+  overflow-y: hidden; /* auto-grow: hide scrollbar, let JS handle height */
+}
+.section-body textarea:focus { border-color: #38bdf8; }
+.section-body textarea::placeholder { color: #475569; }
+.section-body .sec-hint {
+  font-size: 12px; color: #475569; margin-top: 4px; line-height: 1.4;
+}
+/* Markdown preview mode */
+.section-body .sec-preview {
+  background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+  padding: 12px 14px; font-size: 14px; color: #e2e8f0; line-height: 1.7;
+  min-height: 200px; overflow-y: auto; max-height: 600px;
+}
+.section-body .sec-preview strong { color: #38bdf8; }
+.section-body .sec-preview em { color: #94a3b8; font-style: italic; }
+.section-body .sec-preview code {
+  background: #1e293b; padding: 1px 5px; border-radius: 3px; font-size: 12px;
+  font-family: 'Fira Code', 'Consolas', monospace; color: #4ade80;
+}
+.section-body .sec-preview table {
+  width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px;
+}
+.section-body .sec-preview th {
+  background: #1e293b; color: #38bdf8; font-weight: 600; text-align: left;
+  padding: 6px 10px; border: 1px solid #334155;
+}
+.section-body .sec-preview td {
+  padding: 6px 10px; border: 1px solid #334155; color: #e2e8f0; vertical-align: top;
+}
+.section-body .sec-preview tr:hover td { background: rgba(56,189,248,0.05); }
+.section-body .sec-preview blockquote {
+  border-left: 3px solid #38bdf8; padding-left: 10px; color: #94a3b8;
+  margin: 8px 0; font-style: italic;
+}
+.section-body .sec-preview h1,.section-body .sec-preview h2,.section-body .sec-preview h3 {
+  color: #f8fafc; margin: 12px 0 6px; font-size: 15px;
+}
+.section-body .sec-preview ul,.section-body .sec-preview ol {
+  padding-left: 20px; margin: 4px 0;
+}
+.section-body .sec-preview li { margin: 2px 0; }
+.sec-preview-toggle {
+  font-size: 11px; color: #64748b; cursor: pointer; padding: 2px 6px;
+  border: 1px solid #334155; border-radius: 4px; background: none;
+  transition: all 0.15s;
+}
+.sec-preview-toggle:hover { color: #38bdf8; border-color: #38bdf8; }
+.sec-preview-toggle.active { color: #4ade80; border-color: #166534; background: #052e16; }
+.outline-bottom-bar {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding-top: 4px;
+  border-top: 1px solid #334155;
+}
+.outline-progress {
+  font-size: 13px; color: #64748b; margin-left: auto;
+}
+.outline-progress .filled { color: #4ade80; }
+
+/* Section indent levels */
+.outline-section[data-level="1"] { margin-left: 20px; }
+.outline-section[data-level="2"] { margin-left: 40px; }
+
+/* Rename input inline */
+.rename-input {
+  background: #0f172a; border: 1px solid #38bdf8; border-radius: 4px;
+  color: #e2e8f0; font-size: 13px; padding: 5px 10px; outline: none; width: 100%;
+}
+
+@media (max-width: 768px) {
+  .outline-container { flex-direction: column; }
+  .outline-sidebar { width: 100%; }
+  .outline-section[data-level="1"] { margin-left: 10px; }
+  .outline-section[data-level="2"] { margin-left: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="nav-tabs" id="navTabs"></div>
+  <h1>✍️ 写作助手</h1>
+  <div style="flex:1"></div>
+  <div class="actions">
+    <span style="font-size:10px;color:#475569">每个功能可独立配置 API</span>
+    <div class="sep"></div>
+    <div id="syncButtonsArea" style="display:flex;gap:4px;align-items:center;"></div>
+  </div>
+</div>
+
+<!-- Mode Tabs -->
+<div class="writing-container">
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="switchMode('outline')">📑 论文大纲</button>
+    <button class="mode-tab" onclick="switchMode('tools')">🛠 翻译 & LaTeX</button>
+  </div>
+
+  <!-- ==================== Outline Panel (default) ==================== -->
+  <div class="writing-panel active" id="panelOutline">
+    <div class="outline-container">
+      <!-- Left sidebar: project list -->
+      <div class="outline-sidebar">
+        <div class="outline-sidebar-title">
+          我的大纲
+          <button class="btn" style="padding:2px 8px;font-size:11px" onclick="outlineNewProject()">＋新建</button>
+        </div>
+        <div class="outline-project-list" id="outlineProjectList"></div>
+      </div>
+      <!-- Main: outline editor -->
+      <div class="outline-main">
+        <div id="outlineMainContent">
+          <div class="outline-empty">
+            <div class="big-icon">📑</div>
+            <div>选择左侧已有大纲，或从模板新建一个</div>
+            <div style="font-size:11px;color:#334155">你的写作思路会保存在这里，随时可以和 Claude 讨论</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Tools Panel (3-column draggable) ==================== -->
+  <div class="writing-panel" id="panelTools">
+    <div class="tools-layout" id="toolsLayout">
+      <!-- Column 1: Input -->
+      <div class="tools-col" id="toolsColInput" style="flex:1">
+        <div class="panel-label">输入 <span class="badge">中文 / 英文 / 图片</span></div>
+        <textarea class="writing-ta" id="toolsInput" placeholder="输入中文段落进行翻译...&#10;或输入任意文本转 LaTeX...&#10;&#10;例如：本文研究了弹性板在均匀流中的流固耦合响应。"></textarea>
+        <div class="img-upload-zone mini" id="imgUploadZone" onclick="document.getElementById('imgFileInput').click()" style="display:none">
+          <div class="img-upload-icon">📷</div>
+          <div class="img-upload-hint">点击上传或粘贴公式截图</div>
+        </div>
+        <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
+        <div class="panel-actions">
+          <button class="btn primary" onclick="doTranslate()">🌐 翻译</button>
+          <button class="btn" onclick="doTextToLatexAI()" style="background:#1e293b;border-color:#334155">📐 转 LaTeX</button>
+          <button class="btn" onclick="toggleImgUpload()" id="btnImgToggle" style="background:#1e293b;border-color:#334155">📷 公式识别</button>
+          <button class="btn" onclick="openFeatureSettings('translate')" title="API 设置">⚙</button>
+          <button class="btn" onclick="clearToolsInput()">清空</button>
+          <span class="feat-model-tag" id="tagTranslate"></span>
+          <div class="char-count" id="toolsInputCount">0 字</div>
+        </div>
+        <div class="anti-ai-hint">翻译去 AI 味：不用 utilize, leverage, delve, crucial 等词</div>
+        <!-- Translation Dictionary -->
+        <div class="trans-dict-section">
+          <div class="trans-dict-header" onclick="toggleTransDict()">
+            <span class="arrow" id="dictArrow">▶</span>
+            <span class="dict-title">📖 翻译词库</span>
+            <span class="dict-count" id="dictCount">0 条</span>
+          </div>
+          <div class="trans-dict-body" id="dictBody">
+            <div class="dict-list" id="dictList"></div>
+            <div class="dict-add-row">
+              <input type="text" id="dictAddZh" placeholder="中文" onkeydown="if(event.key==='Enter')addDictEntry()">
+              <span style="color:#475569;font-size:10px">→</span>
+              <input type="text" id="dictAddEn" placeholder="英文" onkeydown="if(event.key==='Enter')addDictEntry()">
+              <button class="dict-add-btn" onclick="addDictEntry()">添加</button>
+            </div>
+            <div style="font-size:9px;color:#475569;margin-top:4px;line-height:1.3">优先级：词库 → 学术词库 → 自由翻译</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resize handle 1 -->
+      <div class="tools-resize-handle" data-left="toolsColInput" data-right="toolsColTrans"></div>
+
+      <!-- Column 2: Translation -->
+      <div class="tools-col" id="toolsColTrans" style="flex:1">
+        <!-- Translation result -->
+        <div class="tools-out-box" style="flex:3">
+          <div class="panel-label">翻译结果 <span class="badge">学术英语</span></div>
+          <textarea class="writing-ta" id="transOutput" placeholder="翻译结果..." style="color:#4ade80"></textarea>
+          <div class="panel-actions">
+            <button class="btn green" onclick="copyField('transOutput')">📋 复制</button>
+            <button class="btn" onclick="transResultToLatex()">📐 转 LaTeX</button>
+            <button class="btn" onclick="clearField('transOutput')">清空</button>
+            <span id="transStatus"></span>
+            <div class="char-count" id="transOutputCount">0 字</div>
+          </div>
+        </div>
+        <!-- Translation reasoning -->
+        <div class="tools-out-box" style="flex:2">
+          <div class="panel-label">翻译思路 <span class="badge">术语选择 & 句式分析</span></div>
+          <textarea class="writing-ta" id="transReasoning" placeholder="翻译思路和术语选择说明..." readonly style="color:#94a3b8;font-size:12px"></textarea>
+        </div>
+      </div>
+
+      <!-- Resize handle 2 -->
+      <div class="tools-resize-handle" data-left="toolsColTrans" data-right="toolsColLatex"></div>
+
+      <!-- Column 3: LaTeX -->
+      <div class="tools-col" id="toolsColLatex" style="flex:1">
+        <div class="tools-out-box" style="flex:1">
+          <div class="panel-label">LaTeX 输出</div>
+          <textarea class="writing-ta" id="latexOutput" placeholder="LaTeX 代码将在此显示..." style="font-family:'Fira Code','Consolas',monospace;font-size:13px;color:#4ade80"></textarea>
+          <div class="panel-actions">
+            <button class="btn green" onclick="copyField('latexOutput')">📋 复制</button>
+            <button class="btn" onclick="clearField('latexOutput')">清空</button>
+            <span id="latexStatus"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Per-feature Settings Modal -->
+<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-modal">
+    <h3 id="setTitle">⚙ API 设置</h3>
+    <label>AI 提供商</label>
+    <select id="setProvider" onchange="updateModelOptions()">
+      <option value="deepseek">DeepSeek（极便宜）</option>
+      <option value="gemini">Google Gemini（有免费额度）</option>
+      <option value="openai">OpenAI</option>
+      <option value="claude">Claude (Anthropic)</option>
+    </select>
+    <label>模型</label>
+    <select id="setModel"></select>
+    <label>API Key</label>
+    <input type="password" id="setApiKey" placeholder="sk-... / sk-ant-... / AIza...">
+    <div id="setKeyHint" style="font-size:10px;color:#475569;margin-top:4px"></div>
+    <label>API Endpoint（可选，留空用默认）</label>
+    <input type="text" id="setEndpoint" placeholder="https://api.openai.com/v1">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSettings()">取消</button>
+      <button class="btn primary" onclick="saveFeatureSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sync Modal (body rendered dynamically by sync.js) -->
+<div class="modal-overlay" id="syncModal">
+  <div class="modal" style="width:520px;">
+    <h2>🔄 多设备云同步</h2>
+    <div id="syncModalBody"></div>
+    <div class="btn-row"><button class="btn" onclick="closeModal('syncModal')">关闭</button></div>
+  </div>
+</div>
+
+<!-- Toast handled by shared utils.js -->
+
+<script src="shared/utils.js?v=1773955514"></script>
+<script src="shared/sync.js?v=1773955514"></script>
+<script>
+// ==================== Init ====================
+renderNavTabs("writing");
+
+// ==================== API Key Migration ====================
+// v2.6 merged separate features (translate, latexAI, latexImg) into one "translate" config.
+// Migrate old keys so users don't lose their API settings.
+(function migrateApiKeys() {
+  const newKey = "fsi_w_translate_key";
+  if (localStorage.getItem(newKey)) return; // already has a key, skip
+  // Try to recover from old feature keys
+  const oldKeys = ["fsi_w_latexAI_key", "fsi_w_latexImg_key"];
+  for (const ok of oldKeys) {
+    const val = localStorage.getItem(ok);
+    if (val) {
+      localStorage.setItem(newKey, val);
+      // Also migrate provider/model if missing
+      ["provider", "model", "endpoint"].forEach(field => {
+        const oldField = ok.replace("_key", "_" + field);
+        const newField = newKey.replace("_key", "_" + field);
+        if (!localStorage.getItem(newField) && localStorage.getItem(oldField)) {
+          localStorage.setItem(newField, localStorage.getItem(oldField));
+        }
+      });
+      console.log("[Migration] Recovered API key from " + ok);
+      break;
+    }
+  }
+})();
+
+// Register writing settings sync app
+registerSyncApp({
+  id: "writing",
+  gistFile: "fsi_writing_sync.json",
+  syncTsKey: "fsi_writing_last_sync_ts",
+  getLocalData: function() {
+    // Sync per-feature API configs (no keys for security)
+    const features = ["translate"];
+    const cfg = {};
+    features.forEach(function(f) {
+      cfg[f] = {
+        provider: localStorage.getItem("fsi_w_" + f + "_provider") || "",
+        model: localStorage.getItem("fsi_w_" + f + "_model") || "",
+        endpoint: localStorage.getItem("fsi_w_" + f + "_endpoint") || ""
+      };
+    });
+    return { version: 1, featureConfigs: cfg };
+  },
+  applyRemoteData: function(remote) {
+    if (!remote || !remote.featureConfigs) return;
+    var features = ["translate"];
+    features.forEach(function(f) {
+      var c = remote.featureConfigs[f];
+      if (!c) return;
+      if (c.provider) localStorage.setItem("fsi_w_" + f + "_provider", c.provider);
+      if (c.model) localStorage.setItem("fsi_w_" + f + "_model", c.model);
+      if (c.endpoint) localStorage.setItem("fsi_w_" + f + "_endpoint", c.endpoint);
+    });
+  },
+  onSyncComplete: function() {},
+  createGistDescription: "FSI Writing Assistant Sync"
+});
+
+initSync();
+
+const toolsInput = document.getElementById("toolsInput");
+const transOutput = document.getElementById("transOutput");
+const transReasoning = document.getElementById("transReasoning");
+const latexOutput = document.getElementById("latexOutput");
+
+// Character counters
+toolsInput.addEventListener("input", () => {
+  document.getElementById("toolsInputCount").textContent = toolsInput.value.length + " 字";
+});
+transOutput.addEventListener("input", () => {
+  document.getElementById("transOutputCount").textContent = transOutput.value.length + " 字";
+});
+
+// ==================== Mode Switching ====================
+const MODES = ["outline", "tools"];
+function switchMode(mode) {
+  document.querySelectorAll(".mode-tab").forEach((t, i) => {
+    t.classList.toggle("active", mode === MODES[i]);
+  });
+  document.getElementById("panelOutline").classList.toggle("active", mode === "outline");
+  document.getElementById("panelTools").classList.toggle("active", mode === "tools");
+  if (mode === "outline") outlineRender();
+}
+
+// Toggle image upload zone
+let _imgMode = false;
+function toggleImgUpload() {
+  _imgMode = !_imgMode;
+  document.getElementById("imgUploadZone").style.display = _imgMode ? "flex" : "none";
+  document.getElementById("btnImgToggle").style.background = _imgMode ? "#0c4a6e" : "#1e293b";
+}
+
+// ==================== Draggable Column Resize ====================
+const TOOLS_MIN_W = 160;
+const TOOLS_WIDTHS_KEY = "fsi_tools_col_widths";
+
+function setupToolsResize() {
+  const handles = document.querySelectorAll(".tools-resize-handle");
+  handles.forEach(h => _setupToolsHandle(h));
+  // Restore saved widths
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOOLS_WIDTHS_KEY));
+    if (saved) {
+      ["toolsColInput","toolsColTrans","toolsColLatex"].forEach(id => {
+        if (saved[id]) document.getElementById(id).style.flex = "0 0 " + saved[id] + "%";
+      });
+    }
+  } catch(e) {}
+}
+
+function _setupToolsHandle(handle) {
+  let startX, leftW0, rightW0, leftPanel, rightPanel, totalW;
+
+  handle.addEventListener("mousedown", e => {
+    e.preventDefault();
+    leftPanel = document.getElementById(handle.dataset.left);
+    rightPanel = document.getElementById(handle.dataset.right);
+    if (!leftPanel || !rightPanel) return;
+
+    startX = e.clientX;
+    leftW0 = leftPanel.offsetWidth;
+    rightW0 = rightPanel.offsetWidth;
+    totalW = leftW0 + rightW0;
+    handle.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = ev => {
+      const dx = ev.clientX - startX;
+      let newLeft = Math.max(TOOLS_MIN_W, leftW0 + dx);
+      let newRight = totalW - newLeft;
+      if (newRight < TOOLS_MIN_W) { newRight = TOOLS_MIN_W; newLeft = totalW - newRight; }
+      leftPanel.style.flex = "0 0 " + newLeft + "px";
+      rightPanel.style.flex = "0 0 " + newRight + "px";
+    };
+
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      handle.classList.remove("dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      // Convert to percentages for persistence
+      const container = document.getElementById("toolsLayout");
+      const cw = container.offsetWidth;
+      const widths = {};
+      ["toolsColInput","toolsColTrans","toolsColLatex"].forEach(id => {
+        const el = document.getElementById(id);
+        widths[id] = (el.offsetWidth / cw * 100).toFixed(1);
+        el.style.flex = "0 0 " + widths[id] + "%";
+      });
+      localStorage.setItem(TOOLS_WIDTHS_KEY, JSON.stringify(widths));
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+// Init resize on page load
+document.addEventListener("DOMContentLoaded", () => { setupToolsResize(); });
+
+// Clear unified input
+function clearToolsInput() {
+  toolsInput.value = "";
+  document.getElementById("toolsInputCount").textContent = "0 字";
+  clearImage();
+}
+
+// Convert translation result to LaTeX
+function transResultToLatex() {
+  const text = transOutput.value.trim();
+  if (!text) { showToast("没有翻译结果可转换"); return; }
+  latexOutput.value = convertTextToLatex(text);
+  showToast("✅ 翻译结果已转为 LaTeX");
+}
+
+// ==================== Vocabulary Loading ====================
+let _vocabTerms = null; // cached: [{en, zh}]
+
+async function getVocabTerms() {
+  if (_vocabTerms) return _vocabTerms;
+  // Helper: extract {en, zh} from vocab categories array
+  function _extractTerms(categories) {
+    if (!Array.isArray(categories)) return null;
+    var terms = [];
+    categories.forEach(function(cat) {
+      if (cat && Array.isArray(cat.words)) {
+        cat.words.forEach(function(w) { terms.push({ en: w[0], zh: w[1] }); });
+      }
+    });
+    return terms.length ? terms : null;
+  }
+  // Try localStorage first (key is fsi_vocab_data_v1)
+  try {
+    var raw = localStorage.getItem("fsi_vocab_data_v1");
+    if (raw) {
+      var local = JSON.parse(raw);
+      var t = _extractTerms(local);
+      if (t) { _vocabTerms = t; return _vocabTerms; }
+    }
+  } catch(e) {}
+  // Try Gist fallback
+  try {
+    var gistId = localStorage.getItem("fsi_gh_gist_id") || "";
+    var token = localStorage.getItem("fsi_gh_token") || "";
+    var headers = token ? { Authorization: "token " + token } : {};
+    var resp = await fetch("https://api.github.com/gists/" + gistId, { headers });
+    if (resp.ok) {
+      var gist = await resp.json();
+      var file = gist.files["fsi_vocab_sync.json"];
+      if (file) {
+        var data = JSON.parse(file.content);
+        // Gist stores { vocab: [...categories...], quiz: {...} }
+        var cats = data.vocab || data;
+        var t2 = _extractTerms(cats);
+        if (t2) { _vocabTerms = t2; return _vocabTerms; }
+      }
+    }
+  } catch(e) { console.warn("Vocab fetch failed:", e); }
+  _vocabTerms = [];
+  return _vocabTerms;
+}
+
+function buildTermTable(terms) {
+  if (!terms || !terms.length) return "";
+  const lines = terms.slice(0, 200).map(t => t.zh + " → " + t.en);
+  return lines.join("\n");
+}
+
+// ==================== Translation Dictionary ====================
+const DICT_KEY = "fsi_trans_dict";
+let _transDict = []; // [{zh, en}]
+
+function dictLoad() {
+  try {
+    const raw = localStorage.getItem(DICT_KEY);
+    if (raw) _transDict = JSON.parse(raw);
+    if (!Array.isArray(_transDict)) _transDict = [];
+  } catch(e) { _transDict = []; }
+}
+
+function dictSave() {
+  localStorage.setItem(DICT_KEY, JSON.stringify(_transDict));
+}
+
+function toggleTransDict() {
+  const body = document.getElementById("dictBody");
+  const arrow = document.getElementById("dictArrow");
+  const isOpen = body.classList.toggle("open");
+  arrow.classList.toggle("open", isOpen);
+  if (isOpen) dictRender();
+}
+
+function dictRender() {
+  const list = document.getElementById("dictList");
+  document.getElementById("dictCount").textContent = _transDict.length + " 条";
+  if (_transDict.length === 0) {
+    list.innerHTML = '<div style="font-size:10px;color:#475569;padding:4px">暂无词条，添加你的翻译偏好</div>';
+    return;
+  }
+  list.innerHTML = _transDict.map((d, i) =>
+    '<div class="dict-entry">'
+    + '<span class="dict-zh" title="' + escHtml(d.zh) + '">' + escHtml(d.zh) + '</span>'
+    + '<span class="dict-arrow">→</span>'
+    + '<span class="dict-en" title="' + escHtml(d.en) + '">' + escHtml(d.en) + '</span>'
+    + '<span class="dict-del" onclick="deleteDictEntry(' + i + ')" title="删除">✕</span>'
+    + '</div>'
+  ).join("");
+}
+
+function addDictEntry() {
+  const zhInput = document.getElementById("dictAddZh");
+  const enInput = document.getElementById("dictAddEn");
+  const zh = zhInput.value.trim();
+  const en = enInput.value.trim();
+  if (!zh || !en) { showToast("请填写中文和英文"); return; }
+  // Check duplicate
+  if (_transDict.some(d => d.zh === zh)) {
+    // Update existing
+    _transDict = _transDict.map(d => d.zh === zh ? { zh, en } : d);
+    showToast("✅ 已更新「" + zh + "」的翻译");
+  } else {
+    _transDict.push({ zh, en });
+    showToast("✅ 已添加「" + zh + " → " + en + "」");
+  }
+  dictSave();
+  dictRender();
+  zhInput.value = "";
+  enInput.value = "";
+  zhInput.focus();
+}
+
+function deleteDictEntry(idx) {
+  const entry = _transDict[idx];
+  _transDict.splice(idx, 1);
+  dictSave();
+  dictRender();
+  showToast("已删除「" + entry.zh + "」");
+}
+
+function buildDictTable() {
+  if (!_transDict || !_transDict.length) return "";
+  return _transDict.map(d => d.zh + " → " + d.en).join("\n");
+}
+
+// Register dictionary sync
+registerSyncApp({
+  id: "transdict",
+  gistFile: "fsi_transdict_sync.json",
+  syncTsKey: "fsi_transdict_last_sync_ts",
+  getLocalData: function() {
+    return { version: 1, entries: _transDict };
+  },
+  applyRemoteData: function(remote) {
+    if (!remote || !Array.isArray(remote.entries)) return;
+    // Merge by zh key: keep local entries, add remote ones that are missing
+    var merged = _transDict.slice();
+    remote.entries.forEach(function(re) {
+      if (!merged.some(function(le) { return le.zh === re.zh; })) merged.push(re);
+      else {
+        // Update en if remote has different translation
+        var idx = merged.findIndex(function(le) { return le.zh === re.zh; });
+        if (idx >= 0 && re.en) merged[idx].en = re.en;
+      }
+    });
+    _transDict = merged;
+    dictSave();
+    dictRender();
+  },
+  onSyncComplete: function() {},
+  createGistDescription: "FSI Translation Dictionary Sync"
+});
+
+// Init dictionary
+dictLoad();
+document.getElementById("dictCount").textContent = _transDict.length + " 条";
+
+// ==================== Per-feature API Config ====================
+// Each feature has its own: provider, model, apiKey, endpoint
+// localStorage keys: fsi_w_{featureId}_{field}
+
+const FEATURE_META = {
+  translate:  { label: "🛠 翻译 & LaTeX" }
+};
+
+const MODEL_OPTIONS = {
+  deepseek: [
+    { value: "deepseek-chat", label: "DeepSeek-V3.2 普通模式（极便宜）" },
+    { value: "deepseek-reasoner", label: "DeepSeek-V3.2 深度思考模式" }
+  ],
+  gemini: [
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash（免费，推荐）" },
+    { value: "gemini-3-flash-preview", label: "Gemini 3 Flash（免费，最新预览）" },
+    { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite（免费，最快）" }
+  ],
+  openai: [
+    { value: "gpt-4o-mini", label: "GPT-4o Mini（便宜）" },
+    { value: "gpt-4o", label: "GPT-4o" },
+    { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
+    { value: "gpt-4.1", label: "GPT-4.1" }
+  ],
+  claude: [
+    { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku（便宜）" },
+    { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+    { value: "claude-opus-4-20250514", label: "Claude Opus 4" }
+  ]
+};
+
+function getFeatureConfig(featureId) {
+  return {
+    provider: localStorage.getItem("fsi_w_" + featureId + "_provider") || "openai",
+    model:    localStorage.getItem("fsi_w_" + featureId + "_model") || "",
+    apiKey:   localStorage.getItem("fsi_w_" + featureId + "_key") || "",
+    endpoint: localStorage.getItem("fsi_w_" + featureId + "_endpoint") || ""
+  };
+}
+
+function getDefaultModel(provider) {
+  const defaults = {
+    deepseek: "deepseek-chat",
+    gemini: "gemini-2.5-flash",
+    openai: "gpt-4o-mini",
+    claude: "claude-3-5-haiku-20241022"
+  };
+  return defaults[provider] || "deepseek-chat";
+}
+
+function getDefaultEndpoint(provider) {
+  const defaults = {
+    deepseek: "https://api.deepseek.com",
+    gemini: "https://generativelanguage.googleapis.com",
+    openai: "https://api.openai.com/v1",
+    claude: "https://api.anthropic.com"
+  };
+  return defaults[provider] || "https://api.deepseek.com";
+}
+
+function getEffectiveModel(cfg) {
+  return cfg.model || getDefaultModel(cfg.provider);
+}
+
+async function callFeatureAI(featureId, messages, opts) {
+  const cfg = getFeatureConfig(featureId);
+  if (!cfg.apiKey) {
+    throw new Error("请先配置「" + FEATURE_META[featureId].label + "」的 API Key（点击 ⚙ 按钮）");
+  }
+  const endpoint = cfg.endpoint || getDefaultEndpoint(cfg.provider);
+  const model = getEffectiveModel(cfg);
+  const mergedOpts = Object.assign({}, opts || {}, { model: model });
+
+  if (cfg.provider === "claude") {
+    return callClaude(endpoint, cfg.apiKey, messages, mergedOpts);
+  } else if (cfg.provider === "gemini") {
+    return callGemini(endpoint, cfg.apiKey, messages, mergedOpts);
+  } else {
+    // OpenAI-compatible: works for OpenAI, DeepSeek, and any compatible API
+    return callOpenAI(endpoint, cfg.apiKey, messages, mergedOpts);
+  }
+}
+
+async function callOpenAI(endpoint, apiKey, messages, opts) {
+  const body = {
+    model: (opts && opts.model) || "gpt-4o",
+    messages: messages,
+    temperature: 0.3
+  };
+  if (opts && opts.max_tokens) body.max_tokens = opts.max_tokens;
+
+  // DeepSeek & OpenAI-compatible: append /chat/completions if not already in endpoint
+  const url = endpoint.includes("/chat/completions") ? endpoint
+    : (endpoint.endsWith("/v1") ? endpoint + "/chat/completions"
+    : endpoint + "/v1/chat/completions");
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error("API 错误: " + resp.status + " " + err.slice(0, 200));
+  }
+  const data = await resp.json();
+  return data.choices[0].message.content;
+}
+
+async function callClaude(endpoint, apiKey, messages, opts) {
+  // Convert OpenAI-style messages to Claude format
+  const systemMsg = messages.find(m => m.role === "system");
+  const userMsgs = messages.filter(m => m.role !== "system");
+
+  const body = {
+    model: (opts && opts.model) || "claude-sonnet-4-20250514",
+    max_tokens: (opts && opts.max_tokens) || 4096,
+    messages: userMsgs.map(m => {
+      if (typeof m.content === "string") return { role: m.role, content: m.content };
+      return { role: m.role, content: m.content }; // for vision messages
+    })
+  };
+  if (systemMsg) body.system = systemMsg.content;
+
+  const resp = await fetch(endpoint + "/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error("Claude API 错误: " + resp.status + " " + err.slice(0, 200));
+  }
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+async function callGemini(endpoint, apiKey, messages, opts) {
+  const model = (opts && opts.model) || "gemini-2.5-flash";
+  const url = endpoint + "/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+
+  // Convert OpenAI-style messages to Gemini format
+  const systemMsg = messages.find(m => m.role === "system");
+  const userMsgs = messages.filter(m => m.role !== "system");
+
+  const body = {
+    contents: userMsgs.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: typeof m.content === "string" ? [{ text: m.content }] : m.content
+    })),
+    generationConfig: { temperature: 0.3, maxOutputTokens: (opts && opts.max_tokens) || 4096 }
+  };
+  if (systemMsg) {
+    body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+  }
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error("Gemini API 错误: " + resp.status + " " + err.slice(0, 200));
+  }
+  const data = await resp.json();
+  return data.candidates[0].content.parts[0].text;
+}
+
+// ==================== Translation ====================
+async function doTranslate() {
+  const text = toolsInput.value.trim();
+  if (!text) { showToast("请先输入中文内容"); return; }
+
+  const statusEl = document.getElementById("transStatus");
+  statusEl.innerHTML = '<span class="writing-loading">翻译中...</span>';
+  transOutput.value = "";
+  transReasoning.value = "";
+
+  try {
+    const terms = await getVocabTerms();
+    const termTable = buildTermTable(terms);
+    const dictTable = buildDictTable();
+
+    // Build terminology instructions with priority chain:
+    // 1. Translation dictionary (highest priority - user's manual preferences)
+    // 2. Academic vocabulary (from vocab page)
+    // 3. Free academic translation (default)
+    let termInstructions = "";
+    if (dictTable) {
+      termInstructions += "【最高优先级 — 翻译词库】以下是用户手动指定的翻译偏好，遇到对应概念时必须优先使用这些翻译：\n" + dictTable + "\n\n";
+    }
+    if (termTable) {
+      termInstructions += "【次高优先级 — 学术词库】以下是学术专业术语表，翻译词库中没有的术语请使用此表中的翻译：\n" + termTable + "\n\n";
+    }
+    if (!dictTable && !termTable) {
+      termInstructions = "使用准确的 FSI 领域专业术语。";
+    } else {
+      termInstructions += "以上两个词库都没有涵盖的术语，请按学术英语风格自由翻译。";
+    }
+
+    const systemPrompt = `你是一位 FSI（Fluid-Structure Interaction，流固耦合）领域的学术论文写作助手。
+请将以下中文翻译为学术英语，用于发表在 Journal of Fluid Mechanics、Journal of Fluids and Structures 等期刊的论文中。
+
+要求：
+1. 术语翻译优先级（严格遵守）：
+${termInstructions}
+2. 语言风格：正式学术英语，简洁精确，一个意思用最少的词表达。
+3. 严禁使用以下 AI 味过重的词汇：utilize, leverage, delve, crucial, underscore, notably, furthermore, comprehensive, groundbreaking, encompasses, streamline, intricate, pivotal, facilitate, augment, endeavor, plethora, multifaceted。用更自然的学术表达替代。
+4. 句式参考 JFM/PoF 论文的典型写法，避免过于口语化或机械翻译痕迹。
+
+输出格式（严格遵守）：
+===TRANSLATION===
+（翻译结果）
+===REASONING===
+（翻译思路：解释关键术语的选择、句式结构的考量、为什么用某个表达而不是另一个，以及任何值得注意的翻译决策。如果使用了翻译词库中的术语，请特别标注。用中文写。）`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: text }
+    ];
+
+    const result = await callFeatureAI("translate", messages, { max_tokens: 4096 });
+
+    // Parse structured output
+    const transMatch = result.match(/===TRANSLATION===([\s\S]*?)===REASONING===([\s\S]*)/);
+    if (transMatch) {
+      transOutput.value = transMatch[1].trim();
+      transReasoning.value = transMatch[2].trim();
+    } else {
+      // Fallback: treat entire output as translation
+      transOutput.value = result.trim();
+      transReasoning.value = "（AI 未按格式返回思路，可重试）";
+    }
+
+    statusEl.innerHTML = '<span style="color:#4ade80;font-size:11px">✅ 翻译完成</span>';
+    document.getElementById("transOutputCount").textContent = transOutput.value.length + " 字";
+  } catch(e) {
+    statusEl.innerHTML = '<span style="color:#f87171;font-size:11px">❌ ' + escHtml(e.message) + '</span>';
+  }
+}
+
+// ==================== Text to LaTeX (Local) ====================
+function convertTextToLatex(text) {
+  let lines = text.split("\n");
+  let result = [];
+  let inList = false;
+
+  for (let line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) {
+      if (inList) { result.push("\\end{itemize}"); inList = false; }
+      result.push("");
+      continue;
+    }
+
+    // Headings: lines starting with # or all-caps short lines
+    if (/^#{1,3}\s+(.+)/.test(trimmed)) {
+      if (inList) { result.push("\\end{itemize}"); inList = false; }
+      const match = trimmed.match(/^(#{1,3})\s+(.+)/);
+      const level = match[1].length;
+      const title = texEscape(match[2]);
+      if (level === 1) result.push("\\section{" + title + "}");
+      else if (level === 2) result.push("\\subsection{" + title + "}");
+      else result.push("\\subsubsection{" + title + "}");
+      continue;
+    }
+
+    // List items: lines starting with - or * or number.
+    if (/^[-*]\s+(.+)/.test(trimmed) || /^\d+[.)]\s+(.+)/.test(trimmed)) {
+      if (!inList) { result.push("\\begin{itemize}"); inList = true; }
+      const content = trimmed.replace(/^[-*]\s+/, "").replace(/^\d+[.)]\s+/, "");
+      result.push("  \\item " + texEscapeInline(content));
+      continue;
+    }
+
+    if (inList) { result.push("\\end{itemize}"); inList = false; }
+
+    // Regular paragraph
+    result.push(texEscapeInline(trimmed));
+  }
+  if (inList) result.push("\\end{itemize}");
+  return result.join("\n");
+}
+
+function texEscape(s) {
+  return s.replace(/\\/g, "\\textbackslash{}")
+    .replace(/[&%$#_{}~^]/g, m => "\\" + m);
+}
+
+function texEscapeInline(s) {
+  // Handle **bold** → \textbf{}
+  s = s.replace(/\*\*(.+?)\*\*/g, (_, t) => "\\textbf{" + t + "}");
+  // Handle *italic* → \textit{}
+  s = s.replace(/\*(.+?)\*/g, (_, t) => "\\textit{" + t + "}");
+  // Handle `code` → \texttt{}
+  s = s.replace(/`(.+?)`/g, (_, t) => "\\texttt{" + t + "}");
+  // Escape special chars (but not already escaped and not within $...$)
+  s = s.replace(/(?<!\$)([&%$#_{}~^])(?!\$)/g, (m) => {
+    if (m === "$") return m; // preserve math delimiters
+    return "\\" + m;
+  });
+  return s;
+}
+
+// ==================== Text to LaTeX (AI Enhanced) ====================
+async function doTextToLatexAI() {
+  const text = toolsInput.value.trim();
+  if (!text) { showToast("请先输入文本"); return; }
+
+
+  const statusEl = document.getElementById("latexStatus");
+  statusEl.innerHTML = '<span class="writing-loading">AI 转换中...</span>';
+  latexOutput.value = "";
+
+  try {
+    const messages = [
+      { role: "system", content: `你是 LaTeX 排版专家。请将用户输入的文本转换为 LaTeX 格式。
+
+要求：
+1. 识别标题、子标题 → \\section{}, \\subsection{}
+2. 列表 → \\begin{itemize} / \\begin{enumerate}
+3. 粗体 → \\textbf{}，斜体 → \\textit{}
+4. 数学公式用 $ 或 \\[ \\] 包裹
+5. 表格内容 → \\begin{table} + \\begin{tabular}
+6. 引用 → \\cite{}（保留引用标记）
+7. 数字+单位 → 使用 \\SI{}{} 或正确间距
+8. 只输出 LaTeX 代码，不要加解释
+9. 不要输出 \\documentclass 等前导内容，只输出正文部分` },
+      { role: "user", content: text }
+    ];
+    const result = await callFeatureAI("translate", messages, { max_tokens: 4096 });
+    latexOutput.value = result;
+    statusEl.innerHTML = '<span style="color:#4ade80;font-size:11px">✅ AI 转换完成</span>';
+  } catch(e) {
+    statusEl.innerHTML = '<span style="color:#f87171;font-size:11px">❌ ' + escHtml(e.message) + '</span>';
+  }
+}
+
+// ==================== Image to LaTeX ====================
+let _currentImageBase64 = null;
+
+function handleImageSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  loadImageFile(file);
+}
+
+function loadImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _currentImageBase64 = e.target.result;
+    const zone = document.getElementById("imgUploadZone");
+    zone.innerHTML = '<img src="' + _currentImageBase64 + '" style="max-height:120px">'
+      + '<div style="display:flex;gap:6px;margin-top:4px">'
+      + '<button class="btn primary" style="font-size:11px;padding:4px 12px" onclick="event.stopPropagation();doImageToLatex()">🔍 识别公式</button>'
+      + '<button class="btn" style="font-size:11px;padding:4px 12px" onclick="event.stopPropagation();clearImage()">清除</button>'
+      + '</div>';
+    zone.classList.add("has-image");
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  _currentImageBase64 = null;
+  const zone = document.getElementById("imgUploadZone");
+  zone.innerHTML = '<div class="img-upload-icon">📷</div><div class="img-upload-hint">点击上传或粘贴公式截图</div>';
+  zone.classList.remove("has-image");
+  document.getElementById("imgFileInput").value = "";
+}
+
+// Drag & drop
+document.addEventListener("DOMContentLoaded", () => {
+  const zone = document.getElementById("imgUploadZone");
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.style.borderColor = "#38bdf8"; });
+  zone.addEventListener("dragleave", () => { zone.style.borderColor = "#334155"; });
+  zone.addEventListener("drop", (e) => {
+    e.preventDefault(); zone.style.borderColor = "#334155";
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) loadImageFile(file);
+  });
+});
+
+// Paste — handle image paste when image mode is visible
+document.addEventListener("paste", (e) => {
+  if (!_imgMode) return;
+  const items = e.clipboardData.items;
+  for (let item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      loadImageFile(item.getAsFile());
+      return;
+    }
+  }
+});
+
+async function doImageToLatex() {
+  if (!_currentImageBase64) { showToast("请先上传或粘贴图片"); return; }
+  const cfg = getFeatureConfig("translate"); // use same API config
+  if (!cfg.apiKey) { showToast("请先配置 API Key（点击 ⚙ 按钮）"); return; }
+
+
+  const statusEl = document.getElementById("latexStatus");
+  statusEl.innerHTML = '<span class="writing-loading">识别中...</span>';
+  latexOutput.value = "";
+
+  try {
+    // Extract base64 data and media type
+    const match = _currentImageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!match) throw new Error("图片格式无效");
+    const mediaType = match[1];
+    const base64Data = match[2];
+    const model = getEffectiveModel(cfg);
+
+    let result;
+    if (cfg.provider === "claude") {
+      result = await callClaudeVision(cfg, mediaType, base64Data, model);
+    } else if (cfg.provider === "gemini") {
+      result = await callGeminiVision(cfg, mediaType, base64Data, model);
+    } else {
+      result = await callOpenAIVision(cfg, _currentImageBase64, model);
+    }
+
+    latexOutput.value = result;
+    statusEl.innerHTML = '<span style="color:#4ade80;font-size:11px">✅ 识别完成</span>';
+  } catch(e) {
+    statusEl.innerHTML = '<span style="color:#f87171;font-size:11px">❌ ' + escHtml(e.message) + '</span>';
+  }
+}
+
+async function callOpenAIVision(cfg, dataUrl, model) {
+  const endpoint = cfg.endpoint || "https://api.openai.com/v1";
+  const resp = await fetch(endpoint + "/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.apiKey },
+    body: JSON.stringify({
+      model: model || "gpt-4o",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: "请将图片中的公式、表格或文本内容转换为 LaTeX 代码。只输出 LaTeX 代码，不要加任何解释。如果是数学公式，使用 equation 或 align 环境。如果是表格，使用 tabular 环境。" },
+          { type: "image_url", image_url: { url: dataUrl } }
+        ]
+      }],
+      max_tokens: 4096
+    })
+  });
+  if (!resp.ok) throw new Error("OpenAI Vision 错误: " + resp.status);
+  const data = await resp.json();
+  return data.choices[0].message.content;
+}
+
+async function callClaudeVision(cfg, mediaType, base64Data, model) {
+  const endpoint = cfg.endpoint || "https://api.anthropic.com";
+  const resp = await fetch(endpoint + "/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": cfg.apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: model || "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+          { type: "text", text: "请将图片中的公式、表格或文本内容转换为 LaTeX 代码。只输出 LaTeX 代码，不要加任何解释。如果是数学公式，使用 equation 或 align 环境。如果是表格，使用 tabular 环境。" }
+        ]
+      }]
+    })
+  });
+  if (!resp.ok) throw new Error("Claude Vision 错误: " + resp.status);
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+async function callGeminiVision(cfg, mediaType, base64Data, model) {
+  const endpoint = cfg.endpoint || "https://generativelanguage.googleapis.com";
+  const url = endpoint + "/v1beta/models/" + (model || "gemini-2.5-flash") + ":generateContent?key=" + cfg.apiKey;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mediaType, data: base64Data } },
+          { text: "请将图片中的公式、表格或文本内容转换为 LaTeX 代码。只输出 LaTeX 代码，不要加任何解释。如果是数学公式，使用 equation 或 align 环境。如果是表格，使用 tabular 环境。" }
+        ]
+      }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
+    })
+  });
+  if (!resp.ok) throw new Error("Gemini Vision 错误: " + resp.status);
+  const data = await resp.json();
+  return data.candidates[0].content.parts[0].text;
+}
+
+// ==================== Per-feature Settings ====================
+let _currentSettingFeature = null;
+
+function openFeatureSettings(featureId) {
+  _currentSettingFeature = featureId;
+  const cfg = getFeatureConfig(featureId);
+  const meta = FEATURE_META[featureId];
+  document.getElementById("setTitle").textContent = "⚙ " + meta.label + " API 设置";
+  document.getElementById("setProvider").value = cfg.provider;
+  document.getElementById("setApiKey").value = cfg.apiKey;
+  document.getElementById("setEndpoint").value = cfg.endpoint;
+  updateModelOptions();
+  // Set saved model after options are populated
+  if (cfg.model) document.getElementById("setModel").value = cfg.model;
+  document.getElementById("settingsOverlay").classList.add("show");
+}
+
+function updateModelOptions() {
+  const provider = document.getElementById("setProvider").value;
+  const select = document.getElementById("setModel");
+  const models = MODEL_OPTIONS[provider] || [];
+  select.innerHTML = models.map(m =>
+    '<option value="' + m.value + '">' + m.label + '</option>'
+  ).join("");
+  const hints = {
+    deepseek: '💡 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:#38bdf8">获取 Key</a> · 极便宜，翻译质量很好',
+    gemini: '💡 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">获取免费 Key</a> · 免费额度大',
+    openai: '💡 <a href="https://platform.openai.com/api-keys" target="_blank" style="color:#38bdf8">获取 Key</a>',
+    claude: '💡 <a href="https://console.anthropic.com/" target="_blank" style="color:#38bdf8">获取 Key</a>'
+  };
+  document.getElementById("setKeyHint").innerHTML = hints[provider] || "";
+}
+
+function closeSettings() {
+  document.getElementById("settingsOverlay").classList.remove("show");
+  _currentSettingFeature = null;
+}
+
+function saveFeatureSettings() {
+  if (!_currentSettingFeature) return;
+  const fid = _currentSettingFeature;
+  localStorage.setItem("fsi_w_" + fid + "_provider", document.getElementById("setProvider").value);
+  localStorage.setItem("fsi_w_" + fid + "_model", document.getElementById("setModel").value);
+  localStorage.setItem("fsi_w_" + fid + "_key", document.getElementById("setApiKey").value);
+  localStorage.setItem("fsi_w_" + fid + "_endpoint", document.getElementById("setEndpoint").value);
+  closeSettings();
+  refreshModelTags();
+  showToast("✅ " + FEATURE_META[fid].label + " API 已保存");
+}
+
+// Show current model as small tag next to each feature
+function refreshModelTags() {
+  Object.keys(FEATURE_META).forEach(fid => {
+    const tag = document.getElementById("tag" + fid.charAt(0).toUpperCase() + fid.slice(1));
+    if (!tag) return;
+    const cfg = getFeatureConfig(fid);
+    if (cfg.apiKey) {
+      const model = getEffectiveModel(cfg);
+      // Short display name
+      tag.textContent = model.replace("claude-", "").replace("claude-sonnet-4-20250514", "sonnet-4").split("-202")[0];
+    } else {
+      tag.textContent = "未配置";
+    }
+  });
+}
+
+// Init tags on load
+refreshModelTags();
+
+// ==================== Utilities ====================
+function clearField(id) { document.getElementById(id).value = ""; }
+
+function copyField(id) {
+  const text = document.getElementById(id).value;
+  if (!text) { showToast("没有内容可复制"); return; }
+  navigator.clipboard.writeText(text).then(() => showToast("✅ 已复制到剪贴板"))
+    .catch(() => showToast("复制失败，请手动选择"));
+}
+
+function escHtml(s) {
+  const d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+}
+
+// showToast() — uses shared version from utils.js
+
+// ==================== Outline Module ====================
+const OUTLINE_KEY = "fsi_outline_data";
+const OUTLINE_VERSION = 1;
+
+// Template definitions
+const OUTLINE_TEMPLATES = {
+  proposal: {
+    name: "开题报告",
+    sections: [
+      { title: "论文标题", level: 0, hint: "中英文标题" },
+      { title: "基本信息", level: 0, hint: "姓名、学号、导师、专业方向" },
+      { title: "摘要", level: 0, hint: "简要概述研究内容、方法和预期成果（300字左右）" },
+      { title: "第一章 绪论", level: 0, hint: "" },
+      { title: "1.1 研究背景与意义", level: 1, hint: "为什么要做这个研究？解决什么问题？有什么学术/工程价值？" },
+      { title: "1.2 国内外研究现状", level: 1, hint: "前人做了什么？有哪些关键文献？目前还有什么不足？" },
+      { title: "1.3 研究目标与内容", level: 1, hint: "你打算做什么？具体研究哪几个问题？" },
+      { title: "第二章 研究方法", level: 0, hint: "" },
+      { title: "2.1 技术路线", level: 1, hint: "用什么方法？数值模拟/实验/理论分析？" },
+      { title: "2.2 实验/仿真方案", level: 1, hint: "具体怎么做？工况设置、参数范围、网格/模型选择" },
+      { title: "第三章 预期成果", level: 0, hint: "预期能得到什么结论？发表几篇论文？" },
+      { title: "第四章 进度安排", level: 0, hint: "时间节点规划，甘特图思路" },
+      { title: "参考文献", level: 0, hint: "列出主要参考文献" },
+    ]
+  },
+  thesis: {
+    name: "毕业论文",
+    sections: [
+      { title: "论文标题", level: 0, hint: "中英文标题" },
+      { title: "摘要 / Abstract", level: 0, hint: "中文摘要 + 英文摘要，各300-500字" },
+      { title: "第一章 绪论", level: 0, hint: "" },
+      { title: "1.1 研究背景", level: 1, hint: "学科发展背景、工程应用背景" },
+      { title: "1.2 文献综述", level: 1, hint: "系统梳理相关研究，按主题/时间线组织" },
+      { title: "1.3 研究目的与创新点", level: 1, hint: "你的工作有什么新意？和前人的区别？" },
+      { title: "1.4 论文结构", level: 1, hint: "各章内容简介" },
+      { title: "第二章 理论基础", level: 0, hint: "" },
+      { title: "2.1 控制方程", level: 1, hint: "流体/结构的基本方程" },
+      { title: "2.2 数值方法", level: 1, hint: "离散方法、求解算法" },
+      { title: "2.3 验证算例", level: 1, hint: "代码/方法的验证" },
+      { title: "第三章 [你的第一个研究问题]", level: 0, hint: "改成具体的研究内容标题" },
+      { title: "3.1 问题描述与工况设置", level: 1, hint: "" },
+      { title: "3.2 结果与分析", level: 1, hint: "" },
+      { title: "3.3 小结", level: 1, hint: "" },
+      { title: "第四章 [你的第二个研究问题]", level: 0, hint: "改成具体的研究内容标题" },
+      { title: "4.1 问题描述与工况设置", level: 1, hint: "" },
+      { title: "4.2 结果与分析", level: 1, hint: "" },
+      { title: "4.3 小结", level: 1, hint: "" },
+      { title: "第五章 结论与展望", level: 0, hint: "" },
+      { title: "5.1 主要结论", level: 1, hint: "总结各章的核心发现" },
+      { title: "5.2 未来工作展望", level: 1, hint: "还有哪些值得继续研究的方向？" },
+      { title: "参考文献", level: 0, hint: "" },
+      { title: "致谢", level: 0, hint: "" },
+    ]
+  },
+  journal: {
+    name: "期刊论文",
+    sections: [
+      { title: "Title", level: 0, hint: "简洁明确，突出研究对象和核心发现" },
+      { title: "Abstract", level: 0, hint: "背景1-2句 → 方法1-2句 → 结果2-3句 → 结论1句" },
+      { title: "1. Introduction", level: 0, hint: "" },
+      { title: "1.1 Background & Motivation", level: 1, hint: "为什么这个问题重要？" },
+      { title: "1.2 Literature Review", level: 1, hint: "相关工作，指出 gap" },
+      { title: "1.3 Objectives & Outline", level: 1, hint: "本文做什么，文章结构" },
+      { title: "2. Mathematical Model", level: 0, hint: "" },
+      { title: "2.1 Governing Equations", level: 1, hint: "N-S方程、结构方程、耦合条件" },
+      { title: "2.2 Numerical Method", level: 1, hint: "离散方案、时间推进、网格" },
+      { title: "2.3 Validation", level: 1, hint: "与文献/实验对比验证" },
+      { title: "3. Problem Setup", level: 0, hint: "几何、边界条件、参数范围、网格收敛性" },
+      { title: "4. Results and Discussion", level: 0, hint: "" },
+      { title: "4.1 [Result Topic 1]", level: 1, hint: "图表 + 物理解释" },
+      { title: "4.2 [Result Topic 2]", level: 1, hint: "" },
+      { title: "4.3 [Result Topic 3]", level: 1, hint: "" },
+      { title: "5. Conclusions", level: 0, hint: "核心发现3-5条，未来方向" },
+      { title: "References", level: 0, hint: "" },
+    ]
+  },
+  review: {
+    name: "文献综述",
+    sections: [
+      { title: "论文标题", level: 0, hint: "综述主题" },
+      { title: "摘要", level: 0, hint: "综述范围、分类方法、主要发现" },
+      { title: "1. 引言", level: 0, hint: "研究领域概况，综述目的和范围" },
+      { title: "2. 研究方法分类", level: 0, hint: "" },
+      { title: "2.1 理论分析方法", level: 1, hint: "" },
+      { title: "2.2 数值模拟方法", level: 1, hint: "" },
+      { title: "2.3 实验方法", level: 1, hint: "" },
+      { title: "3. 关键科学问题", level: 0, hint: "" },
+      { title: "3.1 [问题 A]", level: 1, hint: "" },
+      { title: "3.2 [问题 B]", level: 1, hint: "" },
+      { title: "3.3 [问题 C]", level: 1, hint: "" },
+      { title: "4. 研究趋势与展望", level: 0, hint: "未解决的问题、新方向" },
+      { title: "5. 总结", level: 0, hint: "" },
+      { title: "参考文献", level: 0, hint: "" },
+    ]
+  }
+};
+
+// Data management
+let _outlineData = null;
+
+function outlineLoad() {
+  try {
+    const raw = localStorage.getItem(OUTLINE_KEY);
+    if (raw) {
+      _outlineData = JSON.parse(raw);
+      if (_outlineData && _outlineData.version === OUTLINE_VERSION) return;
+    }
+  } catch(e) {}
+  _outlineData = { version: OUTLINE_VERSION, projects: [], activeId: null };
+  // Only save locally on init, don't push empty data to cloud
+  localStorage.setItem(OUTLINE_KEY, JSON.stringify(_outlineData));
+}
+
+function outlineSave(changeDesc) {
+  localStorage.setItem(OUTLINE_KEY, JSON.stringify(_outlineData));
+  // Auto-push to cloud after every save
+  if (typeof debouncedPush === "function") {
+    debouncedPush("outline", changeDesc || "大纲更新");
+  }
+}
+
+// Default outline: FSI Paper Introduction narrative
+const DEFAULT_OUTLINE_ID = "op_fsi_intro_narrative";
+function outlineEnsureDefault() {
+  if (!_outlineData) outlineLoad();
+  if (_outlineData.projects.some(p => p.id === DEFAULT_OUTLINE_ID)) return;
+  const ts = Date.now();
+  const proj = {
+    id: DEFAULT_OUTLINE_ID,
+    name: "FSI Paper — Introduction 叙事线",
+    template: "journal",
+    created: ts, updated: ts,
+    sections: [
+      { id: "os_d1", title: "Title", level: 0, content: "Water jet impact on hyperelastic structures: experiments and applications\n（暂定，后续根据核心发现调整）", hint: "" },
+      { id: "os_d2", title: "Abstract", level: 0, content: "", hint: "背景1-2句 → 方法1-2句 → 结果2-3句 → 结论1句" },
+      { id: "os_d3", title: "1. Introduction", level: 0, content: "", hint: "" },
+      { id: "os_d4", title: "1.1 Water Impact — Classical Theory", level: 1, content: "从 Wagner (1932) 和 von Kármán (1929) 出发，介绍水面冲击问题的经典理论框架。\n\n要点：\n- von Kármán (1929)：momentum conservation，首次给出 slamming 力估算\n- Wagner (1932, ZAMM)：修正了 spray root 位置，给出更精确的湿润面积和冲击力公式\n- 这两个工作是整个 water entry / slamming 领域的基石\n- 后续几十年的理论发展几乎都以此为起点\n\n关键综述文献（支撑背景论述）：\n- Korobkin & Pukhnachov (1988, ARFM) — 首篇 ARFM 水面冲击综述\n- Dias & Ghidaglia (2018, ARFM) — 最新 ARFM slamming 综述\n- Faltinsen (2005, CUP Book) — 高速船舶水动力学经典专著\n- Korobkin (2004, EJAM) — 解析模型系统对比（OLM/MLM/GWM）\n\n写作建议：\n'For comprehensive reviews of water impact, see Korobkin & Pukhnachov (1988), Faltinsen (2005), and Dias & Ghidaglia (2018).'\n'Analytical models based on Wagner theory were systematically compared by Korobkin (2004).'", hint: "经典理论起点，建立学术传承" },
+      { id: "os_d5", title: "1.2 Hydroelastic Extensions", level: 1, content: "从刚体假设 → 考虑结构弹性响应（hydroelasticity）。\n\n要点：\n- Wagner 原始理论假设刚体，但实际工程中结构总有弹性\n- Korobkin 系列工作：将 Wagner 理论与弹性结构模型耦合\n  · Korobkin, Guéret & Malenica (2006, JFS)：beam FEM + Wagner 耦合\n  · Khabakhpasheva & Korobkin (2006, JEM)：解析方法处理波浪冲击弹性板\n  · Reinhard, Korobkin & Cooker (2013, JFM)：高速水平入水弹性板理论\n- 核心物理：双向耦合 — 流体压力驱动结构变形，变形反过来改变流场\n- 理论与数值发展成熟，但实验验证相对不足\n\n写作建议：\n'Hydroelastic effects in water impact were studied analytically by Korobkin et al. (2006), Khabakhpasheva & Korobkin (2006), and Reinhard et al. (2013), who showed that structural deformation can significantly alter the impact pressure distribution.'", hint: "从刚体→弹性，指出实验gap" },
+      { id: "os_d6", title: "1.3 Experimental Studies — Duncan & Wang Group", level: 1, content: "实验验证和新发现。直接学术传承线。\n\n要点：\n- Duncan group 长期从事 water entry / slamming 实验研究\n- Wang et al. (2022, JFM)：弹性铝板恒速斜向入水\n  · 刚度比 R_D 是控制弹性效应的主要参数\n  · 发现减载（中段）和增载（末段）两种机制并存\n  · 全场力/力矩 + 喷根 + 板挠曲同步测量\n- Lee et al. (2024 SNH)：半湿态固有振动，附加质量测量\n- Reinhard et al. (2013) 的理论预测在 Wang et al. (2022) 中得到实验验证\n- 关键gap：前人都用线性弹性材料（铝板），没有人做过超弹性材料\n\n完整引用链：\nWagner (1932) → Korobkin (2004, 2006) → Reinhard (2013) 理论 → Wang (2022) 实验验证 → 你：超弹性", hint: "你的直接学术传承，指出 hyperelastic gap" },
+      { id: "os_d7", title: "1.4 The Hyperelastic Gap", level: 1, content: "为什么要研究超弹性？这是你的核心 novelty。\n\n要点：\n- 生物组织（皮肤、肌肉、血管壁）都是超弹性材料\n- 超弹性 vs 线性弹性：大变形、非线性本构、应变率效应\n- 目前没有系统的实验研究考察高速水射流冲击超弹性结构\n- 理解这类问题对生物医学应用至关重要\n\n桥梁句：\n'Soft biological tissues exhibit hyperelastic behavior (Fung, 1993), making the understanding of high-speed jet impact on such materials directly relevant to emerging biomedical applications including hydrosurgery and needle-free injection.'", hint: "核心 novelty — 没人做过" },
+      { id: "os_d8", title: "1.5 Modern Applications", level: 1, content: "超弹性 FSI 研究的实际应用前景。\n\n【水刀手术 Hydrosurgery】\n- Versajet 系统（Smith & Nephew）：高压水射流 + Venturi 效应精确切除组织\n- Shimada et al. (2021, IWJ)：系统综述，证明比传统清创更快更精准\n- 临床已广泛使用，但缺乏对射流-组织交互的基础力学模型\n\n【无针注射 Needle-free Injection】\n- Mitragotri (2006, Nature Rev Drug Discov)：权威综述，50+ 年临床历史\n- Shergold, Fleck & King (2006, J Biomech)：发现射流通过裂纹机制穿透皮肤\n  → 穿透压力取决于材料的超弹性本构！直接联系你的研究\n- Hogan et al. (2015, Expert Opin Drug Deliv)：MIT Lorentz力可控射流装置\n- Turkoz et al. (2025, JFM)：射流穿透软凝胶的最新建模框架\n\n【软体机器人】\n- 流体驱动的超弹性结构，是活跃的交叉研究方向\n\n写作建议：\n先讲水刀手术（最直观），再讲无针注射（力学联系更深），最后一句提软体机器人。\n核心逻辑：这些应用都需要理解 '高速液体射流冲击超弹性材料' 的力学 → 正是你的研究课题", hint: "应用前景，审稿人爱看" },
+      { id: "os_d9", title: "1.6 Objectives & Outline", level: 1, content: "本文目标和结构。\n\n要点：\n- 本文目标：通过系统实验研究高速水射流冲击超弹性结构的流固耦合响应\n- 核心问题：超弹性材料的大变形非线性如何影响 FSI 耦合？\n- 文章结构：\n  · §2 Experimental Setup\n  · §3 Results and Discussion\n  · §4 Conclusions", hint: "" },
+      { id: "os_d10", title: "2. Experimental Setup", level: 0, content: "", hint: "实验装置、材料、测量方法、参数矩阵" },
+      { id: "os_d11", title: "3. Results and Discussion", level: 0, content: "", hint: "" },
+      { id: "os_d12", title: "4. Conclusions", level: 0, content: "", hint: "核心发现 3-5 条，未来方向" },
+      { id: "os_d13", title: "References", level: 0, content: "", hint: "" }
+    ]
+  };
+  _outlineData.projects.push(proj);
+  _outlineData.activeId = proj.id;
+  outlineSave();
+}
+
+// Debounced save for textarea input
+let _outlineSaveTimer = null;
+function outlineDebouncedSave() {
+  clearTimeout(_outlineSaveTimer);
+  _outlineSaveTimer = setTimeout(() => outlineSave(), 500);
+}
+
+// Create new empty project
+function outlineNewProject() {
+  const proj = {
+    id: "op_" + Date.now(),
+    name: "未命名大纲",
+    template: null,
+    created: Date.now(),
+    updated: Date.now(),
+    sections: []
+  };
+  _outlineData.projects.push(proj);
+  _outlineData.activeId = proj.id;
+  outlineSave();
+  outlineRender();
+}
+
+// Create from template
+function outlineFromTemplate(templateKey) {
+  const tpl = OUTLINE_TEMPLATES[templateKey];
+  if (!tpl) return;
+  const proj = {
+    id: "op_" + Date.now(),
+    name: tpl.name,
+    template: templateKey,
+    created: Date.now(),
+    updated: Date.now(),
+    sections: tpl.sections.map((s, i) => ({
+      id: "os_" + Date.now() + "_" + i,
+      title: s.title,
+      level: s.level,
+      content: "",
+      hint: s.hint || ""
+    }))
+  };
+  _outlineData.projects.push(proj);
+  _outlineData.activeId = proj.id;
+  outlineSave();
+  outlineRender();
+  showToast("✅ 已从「" + tpl.name + "」模板创建");
+}
+
+// Get active project
+function outlineGetActive() {
+  if (!_outlineData || !_outlineData.activeId) return null;
+  return _outlineData.projects.find(p => p.id === _outlineData.activeId) || null;
+}
+
+// Delete project
+function outlineDeleteProject(id, e) {
+  if (e) e.stopPropagation();
+  const proj = _outlineData.projects.find(p => p.id === id);
+  if (!proj) return;
+  if (!confirm("确定删除「" + proj.name + "」？此操作不可撤销。")) return;
+  _outlineData.projects = _outlineData.projects.filter(p => p.id !== id);
+  if (_outlineData.activeId === id) {
+    _outlineData.activeId = _outlineData.projects.length > 0 ? _outlineData.projects[0].id : null;
+  }
+  outlineSave();
+  outlineRender();
+}
+
+// Select project
+function outlineSelectProject(id) {
+  _outlineData.activeId = id;
+  outlineSave();
+  outlineRender();
+}
+
+// Rename project (inline)
+function outlineRenameProject(id, e) {
+  if (e) e.stopPropagation();
+  const el = document.querySelector('.outline-project-item[data-id="' + id + '"] .proj-name');
+  if (!el) return;
+  const proj = _outlineData.projects.find(p => p.id === id);
+  if (!proj) return;
+  const oldText = el.textContent;
+  el.innerHTML = '<input class="rename-input" value="' + escHtml(proj.name) + '">';
+  const inp = el.querySelector("input");
+  inp.focus(); inp.select();
+  const finish = () => {
+    const v = inp.value.trim();
+    if (v && v !== proj.name) { proj.name = v; outlineSave(); }
+    outlineRenderSidebar();
+  };
+  inp.addEventListener("blur", finish);
+  inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") inp.blur(); if (ev.key === "Escape") { inp.value = oldText; inp.blur(); } });
+}
+
+// Add section to active project
+function outlineAddSection() {
+  const proj = outlineGetActive();
+  if (!proj) return;
+  proj.sections.push({
+    id: "os_" + Date.now(),
+    title: "新章节",
+    level: 0,
+    content: "",
+    hint: ""
+  });
+  proj.updated = Date.now();
+  outlineSave();
+  outlineRenderMain();
+}
+
+// Delete section
+function outlineDeleteSection(secId) {
+  const proj = outlineGetActive();
+  if (!proj) return;
+  proj.sections = proj.sections.filter(s => s.id !== secId);
+  proj.updated = Date.now();
+  outlineSave();
+  outlineRenderMain();
+}
+
+// Move section up/down
+function outlineMoveSection(secId, dir) {
+  const proj = outlineGetActive();
+  if (!proj) return;
+  const idx = proj.sections.findIndex(s => s.id === secId);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= proj.sections.length) return;
+  [proj.sections[idx], proj.sections[newIdx]] = [proj.sections[newIdx], proj.sections[idx]];
+  proj.updated = Date.now();
+  outlineSave();
+  outlineRenderMain();
+}
+
+// Change section level (indent/outdent)
+function outlineChangeLevel(secId, delta) {
+  const proj = outlineGetActive();
+  if (!proj) return;
+  const sec = proj.sections.find(s => s.id === secId);
+  if (!sec) return;
+  sec.level = Math.max(0, Math.min(2, sec.level + delta));
+  proj.updated = Date.now();
+  outlineSave();
+  outlineRenderMain();
+}
+
+// Rename section title
+function outlineRenameSection(secId) {
+  const titleEl = document.querySelector('.sec-title[data-secid="' + secId + '"]');
+  if (!titleEl) return;
+  const proj = outlineGetActive();
+  const sec = proj && proj.sections.find(s => s.id === secId);
+  if (!sec) return;
+  titleEl.innerHTML = '<input class="rename-input" value="' + escHtml(sec.title) + '" style="width:100%">';
+  const inp = titleEl.querySelector("input");
+  inp.focus(); inp.select();
+  const finish = () => {
+    const v = inp.value.trim();
+    if (v) { sec.title = v; proj.updated = Date.now(); outlineSave(); }
+    outlineRenderMain();
+  };
+  inp.addEventListener("blur", finish);
+  inp.addEventListener("keydown", (ev) => {
+    ev.stopPropagation();
+    if (ev.key === "Enter") inp.blur();
+    if (ev.key === "Escape") { outlineRenderMain(); }
+  });
+}
+
+// Preview mode tracking
+let _previewSections = new Set();
+
+function outlineTogglePreview(secId) {
+  if (_previewSections.has(secId)) _previewSections.delete(secId);
+  else _previewSections.add(secId);
+  // Need full re-render to switch between textarea and preview div
+  outlineRenderMain();
+}
+
+// Markdown renderer for outline preview
+function outlineRenderMarkdown(text) {
+  if (!text) return "";
+  let html = escHtml(text);
+
+  // Tables: detect markdown table blocks and render as <table>
+  html = html.replace(/((?:\|.+\|\n?)+)/g, function(tableBlock) {
+    const rows = tableBlock.trim().split('\n').filter(r => r.trim());
+    if (rows.length < 2) return tableBlock;
+    // Check if second row is separator (|---|---|)
+    const isSep = /^\|[\s\-:|]+\|$/.test(rows[1]);
+    let result = '<table>';
+    rows.forEach((row, i) => {
+      if (i === 1 && isSep) return; // skip separator
+      const cells = row.split('|').filter((c, j, arr) => j > 0 && j < arr.length); // trim empty first/last
+      const tag = (i === 0 && isSep) ? 'th' : 'td';
+      result += '<tr>' + cells.map(c => '<' + tag + '>' + c.trim() + '</' + tag + '>').join('') + '</tr>';
+    });
+    result += '</table>';
+    return result;
+  });
+
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Blockquotes
+  html = html.replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered list items
+  html = html.replace(/\n- (.+)/g, '\n<li>$1</li>');
+  html = html.replace(/((?:<li>.+<\/li>\n?)+)/g, '<ul>$1</ul>');
+  // Ordered list items (simple)
+  html = html.replace(/\n(\d+)\.\s(.+)/g, '\n<li>$2</li>');
+  // Horizontal rule
+  html = html.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #334155;margin:8px 0">');
+  // Line breaks (but not inside block elements)
+  html = html.replace(/\n/g, '<br>');
+  // Clean up extra <br> after block elements
+  html = html.replace(/<\/(table|h[1-3]|ul|ol|blockquote|hr)><br>/g, '</$1>');
+  html = html.replace(/<br><(table|h[1-3]|ul|ol|blockquote)/g, '<$1');
+
+  return html;
+}
+
+// Toggle section open/close (surgical DOM update, no full rebuild)
+let _openSections = new Set();
+function outlineToggleSection(secId) {
+  if (_openSections.has(secId)) _openSections.delete(secId);
+  else _openSections.add(secId);
+  // Surgical DOM update instead of full rebuild
+  const secEl = document.querySelector('.outline-section[data-secid="' + secId + '"]');
+  if (secEl) {
+    const isOpen = _openSections.has(secId);
+    secEl.classList.toggle("editing", isOpen);
+    const arrow = secEl.querySelector(".arrow");
+    if (arrow) arrow.classList.toggle("open", isOpen);
+    const body = secEl.querySelector(".section-body");
+    if (body) {
+      body.classList.toggle("open", isOpen);
+      // Auto-grow textarea when section opens
+      if (isOpen) {
+        const ta = body.querySelector("textarea");
+        if (ta) outlineAutoGrow(ta);
+      }
+    }
+  } else {
+    outlineRenderMain();
+  }
+}
+
+// Section content status
+function secStatus(content) {
+  if (!content || !content.trim()) return "empty";
+  if (content.trim().length < 20) return "partial";
+  return "done";
+}
+
+// Export outline as text (for Claude to read)
+function outlineExportText() {
+  const proj = outlineGetActive();
+  if (!proj) { showToast("没有选中的大纲"); return; }
+  let text = "# " + proj.name + "\n\n";
+  for (const sec of proj.sections) {
+    const prefix = sec.level === 0 ? "## " : sec.level === 1 ? "### " : "#### ";
+    text += prefix + sec.title + "\n";
+    if (sec.content && sec.content.trim()) {
+      text += sec.content.trim() + "\n";
+    } else {
+      text += "（未填写）\n";
+    }
+    text += "\n";
+  }
+  navigator.clipboard.writeText(text)
+    .then(() => showToast("✅ 大纲已复制到剪贴板，可以粘贴给 Claude 讨论"))
+    .catch(() => showToast("复制失败"));
+}
+
+// ==================== Outline Rendering ====================
+function outlineRender() {
+  if (!_outlineData) outlineLoad();
+  outlineEnsureDefault();
+  outlineRenderSidebar();
+  outlineRenderMain();
+}
+
+function outlineRenderSidebar() {
+  const list = document.getElementById("outlineProjectList");
+  if (!list) return;
+  if (_outlineData.projects.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:#475569;padding:8px">还没有大纲，从下方模板开始</div>';
+    return;
+  }
+  list.innerHTML = _outlineData.projects.map(p => {
+    const active = p.id === _outlineData.activeId;
+    const filled = p.sections.filter(s => s.content && s.content.trim().length > 0).length;
+    const total = p.sections.length;
+    return '<div class="outline-project-item' + (active ? ' active' : '') + '" data-id="' + p.id + '" draggable="true" onclick="outlineSelectProject(\'' + p.id + '\')">'
+      + '<span class="proj-drag" title="拖动排序">⠿</span>'
+      + '<span class="proj-name" ondblclick="outlineRenameProject(\'' + p.id + '\', event)">' + escHtml(p.name) + '</span>'
+      + '<span style="font-size:9px;color:#475569">' + filled + '/' + total + '</span>'
+      + '<span class="proj-del" onclick="outlineDeleteProject(\'' + p.id + '\', event)" title="删除">✕</span>'
+      + '</div>';
+  }).join("");
+}
+
+function outlineRenderMain() {
+  const container = document.getElementById("outlineMainContent");
+  if (!container) return;
+  const proj = outlineGetActive();
+  if (!proj) {
+    container.innerHTML = '<div class="outline-empty"><div class="big-icon">📑</div>'
+      + '<div>选择左侧已有大纲，或从模板新建一个</div>'
+      + '<div style="font-size:11px;color:#334155">你的写作思路会保存在这里，随时可以和 Claude 讨论</div></div>';
+    return;
+  }
+
+  // Preserve active textarea cursor/scroll state
+  let _focusSecId = null, _selStart = 0, _selEnd = 0, _scrollTop = 0;
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl.tagName === "TEXTAREA") {
+    const secEl = activeEl.closest(".outline-section[data-secid]");
+    if (secEl) {
+      _focusSecId = secEl.dataset.secid;
+      _selStart = activeEl.selectionStart;
+      _selEnd = activeEl.selectionEnd;
+      _scrollTop = activeEl.scrollTop;
+    }
+  }
+
+  const filled = proj.sections.filter(s => s.content && s.content.trim().length > 0).length;
+  const total = proj.sections.length;
+  const pct = total > 0 ? Math.round(filled / total * 100) : 0;
+
+  let html = '<div class="outline-main-header">'
+    + '<h3>' + escHtml(proj.name) + '</h3>'
+    + (proj.template ? '<span class="badge">' + (OUTLINE_TEMPLATES[proj.template]?.name || proj.template) + '</span>' : '')
+    + '<button class="btn" style="padding:2px 8px;font-size:11px" onclick="outlineAddSection()">＋章节</button>'
+    + '<button class="btn" style="padding:2px 8px;font-size:11px" onclick="outlineExportText()" title="复制全文大纲到剪贴板，可粘贴给 Claude 讨论">📋 导出</button>'
+    + '<button class="btn" style="padding:2px 8px;font-size:11px" onclick="outlineImportText()" title="从剪贴板导入 Markdown 格式大纲">📥 导入</button>'
+    + '</div>';
+
+  html += '<div class="outline-sections">';
+  if (proj.sections.length === 0) {
+    html += '<div class="outline-empty" style="min-height:100px"><div>空大纲，点击「＋章节」添加内容</div></div>';
+  } else {
+    for (const sec of proj.sections) {
+      const isOpen = _openSections.has(sec.id);
+      const status = secStatus(sec.content);
+      const levelLabel = sec.level === 0 ? "" : sec.level === 1 ? "子节" : "小节";
+      html += '<div class="outline-section' + (isOpen ? ' editing' : '') + '" data-level="' + sec.level + '" data-secid="' + sec.id + '" draggable="true">'
+        + '<div class="section-header" onclick="outlineToggleSection(\'' + sec.id + '\')">'
+        + '<span class="sec-drag" title="拖动排序">⠿</span>'
+        + '<span class="arrow' + (isOpen ? ' open' : '') + '">▶</span>'
+        + '<span class="sec-title" data-secid="' + sec.id + '" ondblclick="event.stopPropagation();outlineRenameSection(\'' + sec.id + '\')">' + escHtml(sec.title) + '</span>'
+        + (levelLabel ? '<span class="sec-level">' + levelLabel + '</span>' : '')
+        + '<span class="sec-status ' + status + '"></span>'
+        + '<div class="sec-actions">'
+        + '<button class="sec-preview-toggle' + (_previewSections.has(sec.id) ? ' active' : '') + '" onclick="event.stopPropagation();outlineTogglePreview(\'' + sec.id + '\')" title="预览/编辑切换">👁</button>'
+        + '<button onclick="event.stopPropagation();outlineRenameSection(\'' + sec.id + '\')" title="重命名">✏</button>'
+        + '<button onclick="event.stopPropagation();outlineChangeLevel(\'' + sec.id + '\', 1)" title="缩进">→</button>'
+        + '<button onclick="event.stopPropagation();outlineChangeLevel(\'' + sec.id + '\', -1)" title="提升">←</button>'
+        + '<button onclick="event.stopPropagation();outlineMoveSection(\'' + sec.id + '\', -1)" title="上移">↑</button>'
+        + '<button onclick="event.stopPropagation();outlineMoveSection(\'' + sec.id + '\', 1)" title="下移">↓</button>'
+        + '<button onclick="event.stopPropagation();outlineDeleteSection(\'' + sec.id + '\')" title="删除" style="color:#f87171">✕</button>'
+        + '</div></div>';
+
+      const isPrev = _previewSections.has(sec.id);
+      html += '<div class="section-body' + (isOpen ? ' open' : '') + '">';
+      if (isPrev && sec.content && sec.content.trim()) {
+        html += '<div class="sec-preview">' + outlineRenderMarkdown(sec.content) + '</div>';
+      } else {
+        html += '<textarea placeholder="在这里写下你的想法、要点、关键论据..." '
+          + 'oninput="outlineOnInput(\'' + sec.id + '\', this)">' + escHtml(sec.content || '') + '</textarea>';
+      }
+      html += '</div></div>';
+    }
+  }
+  html += '</div>';
+
+  html += '<div class="outline-bottom-bar">'
+    + '<span class="outline-progress">进度：<span class="filled">' + filled + '</span> / ' + total + ' 章节已填写 (' + pct + '%)</span>'
+    + '</div>';
+
+  container.innerHTML = html;
+
+  // Restore textarea focus, cursor position, and scroll
+  if (_focusSecId) {
+    const restoredSec = container.querySelector('.outline-section[data-secid="' + _focusSecId + '"]');
+    if (restoredSec) {
+      const ta = restoredSec.querySelector("textarea");
+      if (ta) {
+        ta.focus();
+        ta.selectionStart = _selStart;
+        ta.selectionEnd = _selEnd;
+        ta.scrollTop = _scrollTop;
+      }
+    }
+  }
+  // Auto-grow all visible textareas
+  container.querySelectorAll(".section-body.open textarea").forEach(outlineAutoGrow);
+}
+
+// Handle textarea input in sections
+function outlineOnInput(secId, textarea) {
+  const proj = outlineGetActive();
+  if (!proj) return;
+  const sec = proj.sections.find(s => s.id === secId);
+  if (!sec) return;
+  sec.content = textarea.value;
+  proj.updated = Date.now();
+  outlineDebouncedSave();
+  // Update status dot without full re-render
+  const header = textarea.closest(".outline-section").querySelector(".sec-status");
+  if (header) {
+    header.className = "sec-status " + secStatus(sec.content);
+  }
+  // Auto-grow textarea
+  outlineAutoGrow(textarea);
+}
+
+// Auto-grow textarea to fit content
+function outlineAutoGrow(textarea) {
+  textarea.style.height = "auto";
+  const minH = 200;
+  textarea.style.height = Math.max(minH, textarea.scrollHeight) + "px";
+}
+
+// Register outline sync
+registerSyncApp({
+  id: "outline",
+  gistFile: "fsi_outline_sync.json",
+  syncTsKey: "fsi_outline_last_sync_ts",
+  getLocalData: function() {
+    if (!_outlineData) outlineLoad();
+    return { version: OUTLINE_VERSION, projects: _outlineData.projects, activeId: _outlineData.activeId };
+  },
+  applyRemoteData: function(remote) {
+    if (!remote || !remote.projects) return;
+    if (!_outlineData) outlineLoad();
+    // Merge projects by id: remote-only → add, local-only → keep, both → compare updatedAt
+    var localProjects = _outlineData.projects || [];
+    var merged = localProjects.slice();
+    (remote.projects || []).forEach(function(rp) {
+      var idx = merged.findIndex(function(lp) { return lp.id === rp.id; });
+      if (idx < 0) { merged.push(rp); return; }
+      // Both exist: keep the one with more recent timestamp
+      var localTs = merged[idx].updated || merged[idx].updatedAt || merged[idx].ts || 0;
+      var remoteTs = rp.updated || rp.updatedAt || rp.ts || 0;
+      if (remoteTs > localTs) {
+        merged[idx] = rp;
+        console.log("[Outline Sync] 项目「" + rp.name + "」使用云端版本（云端更新）");
+      } else if (localTs > remoteTs) {
+        console.log("[Outline Sync] 项目「" + merged[idx].name + "」保留本地版本（本地更新）");
+      }
+    });
+    var addedCount = merged.length - localProjects.length;
+    var msg = addedCount > 0 ? ("同步完成，新增 " + addedCount + " 个项目") : "大纲已与云端同步";
+    _outlineData.projects = merged;
+    if (remote.activeId) _outlineData.activeId = remote.activeId;
+    // Save locally but don't re-push (avoid loop)
+    localStorage.setItem(OUTLINE_KEY, JSON.stringify(_outlineData));
+    outlineRender();
+  },
+  onSyncComplete: function() {},
+  createGistDescription: "FSI Paper Outline Sync"
+});
+
+// ==================== Outline Drag & Drop ====================
+let _dragSecId = null;
+
+document.addEventListener("dragstart", (e) => {
+  const secEl = e.target.closest(".outline-section[data-secid]");
+  if (!secEl) return;
+  // Only start section drag from section drag handle
+  if (!e.target.closest(".sec-drag")) { e.preventDefault(); return; }
+  _dragSecId = secEl.dataset.secid;
+  secEl.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", "sec:" + _dragSecId);
+});
+
+document.addEventListener("dragend", (e) => {
+  _dragSecId = null;
+  document.querySelectorAll(".outline-section").forEach(el => {
+    el.classList.remove("dragging", "drag-over-top", "drag-over-bottom");
+  });
+});
+
+document.addEventListener("dragover", (e) => {
+  const secEl = e.target.closest(".outline-section[data-secid]");
+  if (!secEl || secEl.dataset.secid === _dragSecId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  const rect = secEl.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  secEl.classList.remove("drag-over-top", "drag-over-bottom");
+  if (e.clientY < midY) {
+    secEl.classList.add("drag-over-top");
+  } else {
+    secEl.classList.add("drag-over-bottom");
+  }
+});
+
+document.addEventListener("dragleave", (e) => {
+  const secEl = e.target.closest(".outline-section[data-secid]");
+  if (secEl) secEl.classList.remove("drag-over-top", "drag-over-bottom");
+});
+
+document.addEventListener("drop", (e) => {
+  const secEl = e.target.closest(".outline-section[data-secid]");
+  if (!secEl || !_dragSecId || secEl.dataset.secid === _dragSecId) return;
+  e.preventDefault();
+  const proj = outlineGetActive();
+  if (!proj) return;
+  const fromIdx = proj.sections.findIndex(s => s.id === _dragSecId);
+  const targetId = secEl.dataset.secid;
+  let toIdx = proj.sections.findIndex(s => s.id === targetId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  // Determine if dropping above or below
+  const rect = secEl.getBoundingClientRect();
+  const dropBelow = e.clientY > rect.top + rect.height / 2;
+  // Remove from old position
+  const [moved] = proj.sections.splice(fromIdx, 1);
+  // Recalculate target index after removal
+  toIdx = proj.sections.findIndex(s => s.id === targetId);
+  if (dropBelow) toIdx++;
+  proj.sections.splice(toIdx, 0, moved);
+  proj.updated = Date.now();
+  _dragSecId = null;
+  outlineSave();
+  outlineRenderMain();
+});
+
+// ==================== Sidebar Project Drag & Drop ====================
+let _dragProjId = null;
+
+document.addEventListener("dragstart", (e) => {
+  const projEl = e.target.closest(".outline-project-item[data-id]");
+  if (!projEl) return;
+  // Only start project drag if the drag handle was clicked
+  if (!e.target.closest(".proj-drag")) return;
+  _dragProjId = projEl.dataset.id;
+  projEl.classList.add("proj-dragging");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", "proj:" + _dragProjId);
+});
+
+document.addEventListener("dragend", (e) => {
+  if (_dragProjId) {
+    _dragProjId = null;
+    document.querySelectorAll(".outline-project-item").forEach(el => {
+      el.classList.remove("proj-dragging", "proj-drag-over-top", "proj-drag-over-bottom");
+    });
+  }
+});
+
+document.addEventListener("dragover", (e) => {
+  if (!_dragProjId) return;
+  const projEl = e.target.closest(".outline-project-item[data-id]");
+  if (!projEl || projEl.dataset.id === _dragProjId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  const rect = projEl.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  projEl.classList.remove("proj-drag-over-top", "proj-drag-over-bottom");
+  if (e.clientY < midY) {
+    projEl.classList.add("proj-drag-over-top");
+  } else {
+    projEl.classList.add("proj-drag-over-bottom");
+  }
+});
+
+document.addEventListener("dragleave", (e) => {
+  if (!_dragProjId) return;
+  const projEl = e.target.closest(".outline-project-item[data-id]");
+  if (projEl) projEl.classList.remove("proj-drag-over-top", "proj-drag-over-bottom");
+});
+
+document.addEventListener("drop", (e) => {
+  if (!_dragProjId) return;
+  const projEl = e.target.closest(".outline-project-item[data-id]");
+  if (!projEl || projEl.dataset.id === _dragProjId) return;
+  e.preventDefault();
+  const fromIdx = _outlineData.projects.findIndex(p => p.id === _dragProjId);
+  const targetId = projEl.dataset.id;
+  let toIdx = _outlineData.projects.findIndex(p => p.id === targetId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const rect = projEl.getBoundingClientRect();
+  const dropBelow = e.clientY > rect.top + rect.height / 2;
+  const [moved] = _outlineData.projects.splice(fromIdx, 1);
+  toIdx = _outlineData.projects.findIndex(p => p.id === targetId);
+  if (dropBelow) toIdx++;
+  _outlineData.projects.splice(toIdx, 0, moved);
+  _dragProjId = null;
+  outlineSave();
+  outlineRenderSidebar();
+});
+
+// ==================== Outline Import from Clipboard ====================
+async function outlineImportText() {
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch(e) {
+    // Fallback: prompt
+    text = prompt("粘贴 Markdown 格式的大纲（用 ## / ### / #### 标记层级）：");
+  }
+  if (!text || !text.trim()) { showToast("剪贴板为空"); return; }
+
+  // Parse markdown-style outline
+  const lines = text.split("\n");
+  const sections = [];
+  let currentSec = null;
+
+  for (const line of lines) {
+    const trimmed = line.trimEnd();
+    // Match heading levels: # = project name, ## = level 0, ### = level 1, #### = level 2
+    const headMatch = trimmed.match(/^(#{1,4})\s+(.+)/);
+    if (headMatch) {
+      const hLevel = headMatch[1].length;
+      const title = headMatch[2].trim();
+      if (hLevel === 1) continue; // skip project name line (# Title)
+      const secLevel = Math.max(0, Math.min(2, hLevel - 2)); // ## → 0, ### → 1, #### → 2
+      if (currentSec) sections.push(currentSec);
+      currentSec = {
+        id: "os_" + Date.now() + "_" + sections.length,
+        title: title,
+        level: secLevel,
+        content: "",
+        hint: ""
+      };
+    } else if (currentSec) {
+      // Content line
+      if (trimmed === "（未填写）") continue;
+      if (currentSec.content) currentSec.content += "\n" + trimmed;
+      else currentSec.content = trimmed;
+    }
+  }
+  if (currentSec) sections.push(currentSec);
+
+  if (sections.length === 0) {
+    showToast("未识别到有效的大纲结构（需要 ## / ### 标记）");
+    return;
+  }
+
+  // Clean up content (trim)
+  sections.forEach(s => { s.content = (s.content || "").trim(); });
+
+  const proj = outlineGetActive();
+  if (proj && proj.sections.length > 0) {
+    if (!confirm("当前大纲已有 " + proj.sections.length + " 个章节。\n选择「确定」覆盖，「取消」追加到末尾。")) {
+      // Append
+      proj.sections.push(...sections);
+      proj.updated = Date.now();
+      outlineSave();
+      outlineRenderMain();
+      showToast("✅ 已追加 " + sections.length + " 个章节");
+      return;
+    }
+  }
+
+  if (proj) {
+    proj.sections = sections;
+    proj.updated = Date.now();
+  } else {
+    // Create new project
+    const newProj = {
+      id: "op_" + Date.now(),
+      name: "导入的大纲",
+      template: null,
+      created: Date.now(),
+      updated: Date.now(),
+      sections: sections
+    };
+    _outlineData.projects.push(newProj);
+    _outlineData.activeId = newProj.id;
+  }
+  outlineSave();
+  outlineRender();
+  showToast("✅ 已导入 " + sections.length + " 个章节");
+}
+
+// Init outline data on page load and render (it's the default tab)
+outlineLoad();
+outlineRender();
+</script>
+</body>
+</html>

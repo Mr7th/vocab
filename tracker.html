@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>学术工具 · 文献追踪</title>
+<link rel="stylesheet" href="shared/theme.css?v=1773955514">
+<link rel="stylesheet" href="shared/tracker.css?v=1773955514">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-tabs" id="navTabs"></div>
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="tracking" onclick="Tracker.switchView('tracking')">追踪</button>
+    <button class="view-tab" data-view="topics" onclick="Tracker.switchView('topics')">综述分组</button>
+    <button class="view-tab" data-view="search" onclick="Tracker.switchView('search')">🔍 文献检索</button>
+  </div>
+  <h1>📡 文献追踪</h1>
+  <div class="actions">
+    <button class="panel-btn" onclick="Tracker.showBookmarks()" title="查看收藏的文章" style="margin-right:6px">⭐ 收藏</button>
+    <span id="syncButtonsArea"></span>
+  </div>
+</div>
+
+<!-- Tracking View (3 panels) -->
+<div class="tracker-container" id="trackingView">
+  <!-- Panel 1: Journals -->
+  <div class="tracker-panel">
+    <div class="panel-header">
+      <h3>📖 期刊追踪</h3>
+      <div class="spacer"></div>
+      <button class="panel-btn" onclick="Tracker.addJournalGroup()" title="新建分组">📁</button>
+      <button class="panel-btn primary" onclick="Tracker.showAddJournal()">➕ 添加</button>
+      <button class="panel-btn" onclick="Tracker.refreshJournals()">🔄</button>
+    </div>
+    <div class="panel-body" id="journalBody"><div class="empty-state">加载中...</div></div>
+    <div class="last-refresh" id="journalRefreshTime"></div>
+  </div>
+
+  <div class="panel-resize-handle" data-index="0"></div>
+
+  <!-- Panel 2: Scholars -->
+  <div class="tracker-panel">
+    <div class="panel-header">
+      <h3>👨‍🔬 学者 & 实验室</h3>
+      <div class="spacer"></div>
+      <button class="panel-btn" onclick="Tracker.showAddGroup()" title="新建分组">📁</button>
+      <button class="panel-btn primary" onclick="Tracker.showAddScholar()">➕ 添加</button>
+      <button class="panel-btn" onclick="Tracker.refreshScholars()">🔄</button>
+    </div>
+    <div class="panel-body" id="scholarBody"><div class="empty-state">加载中...</div></div>
+    <div class="last-refresh" id="scholarRefreshTime"></div>
+  </div>
+
+  <div class="panel-resize-handle" data-index="1"></div>
+
+  <!-- Panel 3: Discovery -->
+  <div class="tracker-panel">
+    <div class="panel-header">
+      <h3>🔍 论文发现</h3>
+      <div class="spacer"></div>
+      <button class="panel-btn primary" onclick="Tracker.showAddKeyword()">➕ 关键词</button>
+      <button class="panel-btn" onclick="Tracker.refreshDiscoveries()">🔄</button>
+    </div>
+    <div class="panel-body" id="discoveryBody"><div class="empty-state">加载中...</div></div>
+    <div class="last-refresh" id="discoveryRefreshTime"></div>
+  </div>
+</div>
+
+<!-- Topics View (综述分组) -->
+<div id="topicsView" style="display:none">
+  <div class="topics-view">
+    <div class="topics-header">
+      <h3>📑 综述分组</h3>
+      <div style="flex:1"></div>
+      <button class="panel-btn primary" onclick="Tracker.addTopicGroup()">➕ 新建分组</button>
+      <button class="panel-btn" onclick="Tracker.exportTopicsMd()" style="margin-left:4px">📤 导出 Markdown</button>
+    </div>
+    <div id="topicsBody"></div>
+  </div>
+</div>
+
+<!-- Search View (文献检索) -->
+<div id="searchView" style="display:none">
+  <div class="topics-view">
+    <div class="topics-header">
+      <h3>🔍 文献检索</h3>
+      <div style="flex:1"></div>
+      <span style="font-size:12px;color:#64748b">在已追踪的期刊中搜索</span>
+    </div>
+    <div style="padding:16px">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="litSearchInput" class="search-box" placeholder="输入关键词，例如：water jet impact hyperelastic" style="flex:1;font-size:14px;padding:10px 14px" onkeydown="if(event.key==='Enter')Tracker.doLitSearch()">
+        <button class="panel-btn primary" onclick="Tracker.doLitSearch()" style="padding:8px 16px;font-size:13px">搜索</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center" id="litSearchJournalFilter">
+        <span style="font-size:12px;color:#94a3b8;margin-right:4px">期刊范围：</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <label style="font-size:12px;color:#94a3b8">年份：</label>
+        <select id="litSearchYear" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:4px;padding:4px 8px;font-size:12px">
+          <option value="3">近3年</option>
+          <option value="5" selected>近5年</option>
+          <option value="10">近10年</option>
+          <option value="0">不限</option>
+        </select>
+        <label style="font-size:12px;color:#94a3b8;margin-left:12px">排序：</label>
+        <select id="litSearchSort" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:4px;padding:4px 8px;font-size:12px">
+          <option value="relevance_score:desc">相关度</option>
+          <option value="cited_by_count:desc">被引量</option>
+          <option value="publication_date:desc">最新发表</option>
+        </select>
+        <label style="font-size:12px;color:#94a3b8;margin-left:12px">数量：</label>
+        <select id="litSearchCount" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:4px;padding:4px 8px;font-size:12px">
+          <option value="15">15</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+    <div id="litSearchResults" style="padding:0 16px 16px"></div>
+  </div>
+</div>
+
+<!-- Search Modal -->
+<div class="modal-overlay" id="searchModalOverlay" onclick="if(event.target===this)Tracker.closeSearchModal()">
+  <div class="modal-box">
+    <div class="modal-header"><h4 id="searchModalTitle">搜索</h4><button class="modal-close" onclick="Tracker.closeSearchModal()">&times;</button></div>
+    <div class="group-select-wrap" id="groupSelectWrap" style="display:none"><select class="group-select" id="groupSelect"></select></div>
+    <div style="padding:12px 16px"><input class="search-input" id="searchInput" placeholder="输入关键词搜索..." autocomplete="off"></div>
+    <div class="search-results" id="searchResults"><div class="search-empty">输入关键词开始搜索</div></div>
+  </div>
+</div>
+
+<!-- Keyword Modal -->
+<div class="modal-overlay" id="keywordModalOverlay" onclick="if(event.target===this)Tracker.closeKeywordModal()">
+  <div class="modal-box" style="max-height:280px">
+    <div class="modal-header"><h4>添加关键词组</h4><button class="modal-close" onclick="Tracker.closeKeywordModal()">&times;</button></div>
+    <div style="padding:12px 16px"><label style="font-size:13px;color:#94a3b8;display:block;margin-bottom:4px">标签名称</label><input class="search-input" id="kwLabelInput" placeholder="如: 流固耦合"></div>
+    <div style="padding:0 16px"><label style="font-size:13px;color:#94a3b8;display:block;margin-bottom:4px">搜索关键词（英文）</label><input class="search-input" id="kwTermsInput" placeholder="如: fluid-structure interaction slamming"></div>
+    <div style="padding:12px 16px;text-align:right"><button class="panel-btn primary" onclick="Tracker.addKeywordGroup()" style="padding:6px 16px">确认添加</button></div>
+  </div>
+</div>
+
+<!-- Group Modal -->
+<div class="modal-overlay" id="groupModalOverlay" onclick="if(event.target===this)Tracker.closeGroupModal()">
+  <div class="modal-box" style="max-height:200px">
+    <div class="modal-header"><h4>新建学者分组</h4><button class="modal-close" onclick="Tracker.closeGroupModal()">&times;</button></div>
+    <div style="padding:12px 16px"><input class="search-input" id="groupNameInput" placeholder="分组名称，如: 导师组、同行"></div>
+    <div style="padding:0 16px 14px;text-align:right"><button class="panel-btn primary" onclick="Tracker.addScholarGroup()" style="padding:6px 16px">创建</button></div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModalOverlay" onclick="if(event.target===this)Tracker.closeEditModal()">
+  <div class="modal-box" style="max-height:420px">
+    <div class="modal-header"><h4 id="editModalTitle">编辑</h4><button class="modal-close" onclick="Tracker.closeEditModal()">&times;</button></div>
+    <div style="padding:12px 16px" id="editFields"></div>
+    <div style="padding:0 16px 14px;text-align:right"><button class="panel-btn primary" onclick="Tracker.saveEdit()" style="padding:6px 16px">保存</button></div>
+  </div>
+</div>
+
+<!-- Journal Info Modal -->
+<div class="modal-overlay" id="journalInfoOverlay" onclick="if(event.target===this)Tracker.closeJournalInfo()">
+  <div class="modal-box" style="max-height:480px">
+    <div class="modal-header"><h4 id="journalInfoTitle">期刊信息</h4><button class="modal-close" onclick="Tracker.closeJournalInfo()">&times;</button></div>
+    <div style="padding:12px 16px;overflow-y:auto" id="journalInfoContent"></div>
+  </div>
+</div>
+
+<!-- Bookmarks Modal -->
+<div class="modal-overlay" id="bookmarksOverlay" onclick="if(event.target===this)Tracker.closeBookmarks()">
+  <div class="modal-box" style="max-height:560px;width:520px">
+    <div class="modal-header"><h4>⭐ 收藏文章 <span id="bookmarksCount" style="font-size:11px;color:#64748b;font-weight:normal"></span></h4><button class="modal-close" onclick="Tracker.closeBookmarks()">&times;</button></div>
+    <div style="padding:12px 16px;overflow-y:auto;max-height:460px" id="bookmarksContent"></div>
+  </div>
+</div>
+
+<!-- Citation Chain Modal -->
+<div class="modal-overlay" id="citChainOverlay" onclick="if(event.target===this)Tracker.closeCitChain()">
+  <div class="modal-box cit-chain-modal">
+    <div class="modal-header">
+      <button class="cit-chain-back" id="citChainBack" onclick="Tracker.citChainBack()" style="display:none">← 返回</button>
+      <h4>🔗 引用链: <span id="citChainTitle"></span></h4>
+      <button class="modal-close" onclick="Tracker.closeCitChain()">&times;</button>
+    </div>
+    <div class="cit-chain-tabs" id="citChainTabs">
+      <button class="panel-btn primary" data-tab="citedby" onclick="Tracker.switchCitTab('citedby')">引用了这篇</button>
+      <button class="panel-btn" data-tab="refs" onclick="Tracker.switchCitTab('refs')">这篇引用的</button>
+    </div>
+    <div class="cit-chain-content" id="citChainContent"></div>
+  </div>
+</div>
+
+<!-- Generic Prompt/Confirm Modal -->
+<div class="modal-overlay" id="promptModalOverlay" onclick="if(event.target===this)Tracker._resolvePrompt(null)">
+  <div class="modal-box" style="max-height:220px">
+    <div class="modal-header"><h4 id="promptModalTitle">提示</h4><button class="modal-close" onclick="Tracker._resolvePrompt(null)">&times;</button></div>
+    <div style="padding:12px 16px" id="promptModalBody">
+      <input class="search-input" id="promptModalInput" placeholder="">
+    </div>
+    <div style="padding:0 16px 14px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="panel-btn" onclick="Tracker._resolvePrompt(null)">取消</button>
+      <button class="panel-btn primary" id="promptModalOk" onclick="Tracker._resolvePromptOk()" style="padding:6px 16px">确认</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="shared/utils.js?v=1773955514"></script>
+<script src="shared/sync.js?v=1773955514"></script>
+<script src="shared/tracker.js?v=1773955514"></script>
+<script>
+  renderNavTabs("tracker");
+  registerSyncApp({
+    id: "tracker", gistFile: "fsi_tracker_sync.json", syncTsKey: "fsi_tracker_last_sync_ts",
+    getLocalData: () => {
+      const d = Object.assign({}, Tracker.data);
+      d.bookmarks = Tracker._getBookmarks();
+      d.notes = Tracker._getNotes();
+      d.topics = Tracker._getTopics();
+      return d;
+    },
+    applyRemoteData: (r) => {
+      if (!r || !r.journalGroups || !r.scholarGroups || !r.keywordGroups) return;
+      const local = Tracker.data;
+      // --- Merge journalGroups by group id, journals by openalex_id ---
+      const mergedJG = [...local.journalGroups];
+      r.journalGroups.forEach(rg => {
+        const lg = mergedJG.find(g => g.id === rg.id);
+        if (!lg) { mergedJG.push(rg); return; }
+        (rg.journals || []).forEach(rj => {
+          if (!lg.journals.some(lj => lj.openalex_id === rj.openalex_id)) lg.journals.push(rj);
+          else { const idx = lg.journals.findIndex(lj => lj.openalex_id === rj.openalex_id); if (rj.articles && rj.articles.length) lg.journals[idx].articles = rj.articles; }
+        });
+      });
+      // --- Merge scholarGroups by group id, scholars by openalex_id ---
+      const mergedSG = [...local.scholarGroups];
+      r.scholarGroups.forEach(rg => {
+        const lg = mergedSG.find(g => g.id === rg.id);
+        if (!lg) { mergedSG.push(rg); return; }
+        (rg.scholars || []).forEach(rs => {
+          if (!lg.scholars.some(ls => ls.openalex_id === rs.openalex_id)) lg.scholars.push(rs);
+          else { const idx = lg.scholars.findIndex(ls => ls.openalex_id === rs.openalex_id); if (rs.articles && rs.articles.length) lg.scholars[idx].articles = rs.articles; }
+        });
+      });
+      // --- Merge keywordGroups by id ---
+      const mergedKG = [...local.keywordGroups];
+      r.keywordGroups.forEach(rk => {
+        const lk = mergedKG.find(k => k.id === rk.id);
+        if (!lk) { mergedKG.push(rk); return; }
+        if (rk.results && rk.results.length) lk.results = rk.results;
+      });
+      Tracker.data = { journalGroups: mergedJG, scholarGroups: mergedSG, keywordGroups: mergedKG, lastRefresh: r.lastRefresh || local.lastRefresh };
+      // --- Merge bookmarks by DOI ---
+      if (r.bookmarks) {
+        const localBM = Tracker._getBookmarks();
+        const merged = [...localBM];
+        r.bookmarks.forEach(rb => { if (!merged.some(lb => lb.doi === rb.doi)) merged.push(rb); });
+        Tracker._saveBookmarks(merged);
+      }
+      // --- Merge notes by DOI (local priority) ---
+      if (r.notes) {
+        const localNotes = Tracker._getNotes();
+        const mergedNotes = Object.assign({}, r.notes, localNotes);
+        Tracker._saveNotes(mergedNotes);
+      }
+      // --- Merge topics by group id, papers by DOI ---
+      if (r.topics) {
+        const localTopics = Tracker._getTopics();
+        const mergedTopics = [...localTopics];
+        r.topics.forEach(rt => {
+          const lt = mergedTopics.find(t => t.id === rt.id);
+          if (!lt) { mergedTopics.push(rt); return; }
+          (rt.papers || []).forEach(rp => {
+            if (!lt.papers.some(lp => lp.doi === rp.doi)) lt.papers.push(rp);
+          });
+        });
+        Tracker._saveTopics(mergedTopics);
+      }
+      Tracker.save(); Tracker.render();
+    },
+    onSyncComplete: () => showToast("追踪数据已同步")
+  });
+  Tracker.load(); Tracker.render(); initSync();
+  if (!Tracker.data.lastRefresh || Date.now() - Tracker.data.lastRefresh > 3600000) Tracker.refreshAll();
+
+  // Prompt modal Enter key
+  document.getElementById("promptModalInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") Tracker._resolvePromptOk();
+    if (e.key === "Escape") Tracker._resolvePrompt(null);
+  });
+
+  // ==================== Panel Resize Drag ====================
+  (function() {
+    const WIDTHS_KEY = 'fsi_tracker_panel_widths';
+    const container = document.getElementById('trackingView');
+    const handles = container.querySelectorAll('.panel-resize-handle');
+    const panels = container.querySelectorAll('.tracker-panel');
+    if (panels.length < 2) return;
+
+    // Restore saved widths
+    try {
+      const saved = JSON.parse(localStorage.getItem(WIDTHS_KEY));
+      if (saved && saved.length === panels.length) {
+        panels.forEach((p, i) => { p.style.flex = 'none'; p.style.width = saved[i] + '%'; });
+      } else {
+        panels.forEach(p => { p.style.flex = 'none'; p.style.width = (100 / panels.length) + '%'; });
+      }
+    } catch(e) {
+      panels.forEach(p => { p.style.flex = 'none'; p.style.width = (100 / panels.length) + '%'; });
+    }
+
+    function saveWidths() {
+      const cw = container.clientWidth;
+      const widths = Array.from(panels).map(p => +(p.clientWidth / cw * 100).toFixed(2));
+      try { localStorage.setItem(WIDTHS_KEY, JSON.stringify(widths)); } catch(e){}
+    }
+
+    handles.forEach((handle) => {
+      const idx = parseInt(handle.dataset.index);
+      let startX, startLeftW, startRightW;
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        handle.classList.add('dragging');
+        startX = e.clientX;
+        startLeftW = panels[idx].clientWidth;
+        startRightW = panels[idx + 1].clientWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const newLeft = Math.max(120, startLeftW + dx);
+          const newRight = Math.max(120, startRightW - dx);
+          const cw = container.clientWidth;
+          panels[idx].style.width = (newLeft / cw * 100) + '%';
+          panels[idx + 1].style.width = (newRight / cw * 100) + '%';
+        }
+        function onUp() {
+          handle.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          saveWidths();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  })();
+</script>
+</body>
+</html>

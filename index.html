@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>学术工具 · 词库</title>
+<link rel="stylesheet" href="shared/theme.css?v=1773955514">
+<style>
+  /* ====== Vocab-specific: Sidebar ====== */
+  .sidebar {
+    width: 210px; min-width: 210px; background: #0f172a; border-right: 1px solid #1e293b;
+    padding: 10px 0; position: sticky; top: 48px; height: calc(100vh - 48px); overflow-y: auto;
+  }
+  .sidebar-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #475569; padding: 0 14px; margin-bottom: 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 7px; padding: 6px 14px; cursor: grab;
+    font-size: 12px; color: #94a3b8; transition: all 0.15s; border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: #1e293b; color: #e2e8f0; }
+  .nav-item.active { background: #1e293b; color: #38bdf8; border-left-color: #38bdf8; }
+  .nav-item .emoji { font-size: 13px; width: 18px; text-align: center; }
+  .nav-item .count { margin-left: auto; font-size: 10px; color: #475569; background: #1e293b; border-radius: 10px; padding: 1px 6px; }
+  .nav-item.active .count { background: #0c4a6e; color: #38bdf8; }
+  .nav-item.dragging { opacity: 0.35; }
+  .nav-item.drag-over { background: #1e3a5f; border-left: 3px solid #38bdf8; }
+
+  /* ====== Vocab Folder Tree ====== */
+  .nav-total { display: flex; align-items: center; gap: 7px; padding: 7px 14px; cursor: pointer; font-size: 12px; font-weight: 600; color: #e2e8f0; border-left: 3px solid transparent; transition: all 0.15s; margin-bottom: 2px; }
+  .nav-total:hover { background: #1e293b; }
+  .nav-total.active { background: #1e293b; color: #38bdf8; border-left-color: #38bdf8; }
+  .nav-total .count { margin-left: auto; font-size: 10px; color: #475569; background: #1e293b; border-radius: 10px; padding: 1px 6px; }
+  .nav-folder { display: flex; align-items: center; gap: 5px; padding: 6px 10px 6px 10px; cursor: pointer; font-size: 12px; color: #94a3b8; font-weight: 600; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-folder:hover { background: #1e293b; color: #e2e8f0; }
+  .nav-folder.active { color: #38bdf8; border-left-color: #38bdf8; background: #1e293b; }
+  .nav-folder.drag-over { background: #1e3a5f; border-left: 3px solid #38bdf8; }
+  .nav-folder .arrow { font-size: 8px; width: 14px; text-align: center; transition: transform 0.2s; color: #475569; }
+  .nav-folder.expanded .arrow { transform: rotate(90deg); }
+  .nav-folder .count { margin-left: auto; font-size: 10px; color: #475569; background: #1e293b; border-radius: 10px; padding: 1px 6px; }
+  .folder-children { display: none; }
+  .folder-children.show { display: block; }
+  .folder-children .nav-item { padding-left: 30px; }
+  .folder-add-btn { display: block; margin: 4px 14px; padding: 4px 8px; border: 1px dashed #334155; border-radius: 6px; text-align: center; font-size: 10px; color: #475569; cursor: pointer; background: none; width: calc(100% - 28px); }
+  .folder-add-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+
+  .content { flex: 1; padding: 14px 20px; overflow-y: auto; }
+
+  /* ====== Category & Words ====== */
+  .category { margin-bottom: 16px; background: #1e293b; border-radius: 10px; border: 1px solid #334155; overflow: hidden; }
+  .cat-header { display: flex; align-items: center; gap: 9px; padding: 10px 14px; cursor: pointer; user-select: none; transition: background 0.15s; }
+  .cat-header:hover { background: #253347; }
+  .cat-header .emoji { font-size: 17px; }
+  .cat-header .title { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+  .cat-header .title-en { color: #64748b; font-size: 11px; }
+  .cat-header .count { font-size: 10px; color: #64748b; background: #0f172a; padding: 1px 7px; border-radius: 10px; }
+  .cat-header .arrow { margin-left: auto; color: #475569; font-size: 10px; transition: transform 0.25s; }
+  .category.open .cat-header .arrow { transform: rotate(90deg); }
+  .cat-body { display: none; }
+  .category.open .cat-body { display: block; }
+  .word-row {
+    display: grid; grid-template-columns: minmax(170px,1.2fr) minmax(90px,0.8fr) 1.8fr auto;
+    padding: 7px 14px; border-top: 1px solid #253347; font-size: 13px; line-height: 1.5; transition: background 0.1s; align-items: center;
+  }
+  .word-row:hover { background: #253347; }
+  .word-row.highlight { background: #1e3a5f; }
+  .word-en { color: #38bdf8; font-weight: 600; }
+  .word-cn { color: #e2e8f0; font-weight: 500; }
+  .word-ctx { color: #94a3b8; font-size: 12px; font-style: italic; }
+  .word-del { opacity: 0; color: #64748b; cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: 4px; transition: all 0.15s; }
+  .word-row:hover .word-del { opacity: 1; }
+  .word-del:hover { color: #f87171; background: #450a0a; }
+  .table-header {
+    display: grid; grid-template-columns: minmax(170px,1.2fr) minmax(90px,0.8fr) 1.8fr auto;
+    padding: 5px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #475569; background: #172033; border-bottom: 1px solid #253347;
+  }
+
+  /* ====== Quiz ====== */
+  .quiz-overlay {
+    display: none; position: fixed; inset: 0; background: #0f172a; z-index: 300;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .quiz-overlay.show { display: flex; }
+  .quiz-top {
+    position: absolute; top: 0; left: 0; right: 0; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b;
+  }
+  .quiz-top .title { font-size: 15px; font-weight: 600; color: #f1f5f9; }
+  .quiz-top .pool-info { display: flex; gap: 16px; font-size: 12px; }
+  .pool-tag { padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+  .pool-a { background: #7c2d12; color: #fdba74; }
+  .pool-b { background: #14532d; color: #86efac; }
+  .quiz-card {
+    background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+    width: 520px; max-width: 90vw; padding: 40px; text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3); position: relative;
+  }
+  .quiz-card .cat-label { font-size: 11px; color: #64748b; margin-bottom: 8px; }
+  .quiz-card .question { font-size: 28px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; font-family: 'Segoe UI', sans-serif; }
+  .quiz-card .ctx { font-size: 12px; color: #64748b; font-style: italic; margin-bottom: 24px; }
+  .quiz-card .answer-area { min-height: 60px; margin-bottom: 20px; }
+  .quiz-card .answer-text { font-size: 22px; font-weight: 600; color: #f1f5f9; }
+  .quiz-card .streak-info { font-size: 11px; color: #475569; margin-top: 8px; }
+  .quiz-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .quiz-btn-big {
+    padding: 10px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+  }
+  .qb-show { background: #1e293b; color: #38bdf8; border-color: #334155; }
+  .qb-show:hover { background: #253347; border-color: #38bdf8; }
+  .qb-yes { background: #14532d; color: #86efac; border-color: #166534; }
+  .qb-yes:hover { background: #166534; }
+  .qb-no { background: #7c2d12; color: #fdba74; border-color: #9a3412; }
+  .qb-no:hover { background: #9a3412; }
+  .qb-next { background: #1e293b; color: #94a3b8; border-color: #334155; }
+  .qb-next:hover { background: #253347; }
+  .quiz-progress { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: #0f172a; border-radius: 0 0 16px 16px; overflow: hidden; }
+  .quiz-progress-bar { height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); transition: width 0.3s; }
+  .quiz-mode-select { margin-bottom: 30px; }
+  .quiz-mode-select .title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 16px; }
+  .mode-cards { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .mode-card {
+    background: #1e293b; border: 2px solid #334155; border-radius: 12px;
+    padding: 20px; width: 200px; cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .mode-card:hover { border-color: #38bdf8; background: #253347; }
+  .mode-card .icon { font-size: 32px; margin-bottom: 8px; }
+  .mode-card .name { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+  .mode-card .desc { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .quiz-summary { text-align: center; }
+  .quiz-summary .big-icon { font-size: 48px; margin-bottom: 12px; }
+  .quiz-summary .msg { font-size: 18px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px; }
+  .quiz-summary .detail { font-size: 13px; color: #94a3b8; margin-bottom: 20px; line-height: 1.8; }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .word-row { grid-template-columns: 1fr 1fr; gap: 3px; }
+    .word-ctx { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-tabs" id="navTabs"></div>
+  <h1>学术工具 · 词库</h1>
+  <div class="search-area">
+    <span class="search-icon">&#128269;</span>
+    <input class="search-box" id="searchInput" placeholder="搜索 (Ctrl+K)" autocomplete="off">
+  </div>
+  <div class="actions">
+    <button class="btn primary" onclick="openAddWord()">+ 词汇</button>
+    <button class="btn" onclick="openAddCat()">+ 分类</button>
+    <div class="sep"></div>
+    <button class="btn" id="sortNone" onclick="setSort('none')" title="默认排序">默认</button>
+    <button class="btn" id="sortEn" onclick="setSort('en')" title="英文 A→Z">A→Z</button>
+    <button class="btn" id="sortCn" onclick="setSort('cn')" title="按中文排序">中文</button>
+    <div class="sep"></div>
+    <button class="btn quiz-btn" onclick="openQuiz()">&#128218; 背单词</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="exportData()">&#128190;</button>
+    <button class="btn" onclick="importData()">&#128194;</button>
+    <div class="sep"></div>
+    <div id="syncButtonsArea" style="display:flex;gap:4px;align-items:center;"></div>
+  </div>
+  <div class="stats">
+    <div class="stat-badge"><span id="totalCount">0</span>词</div>
+    <div class="stat-badge"><span id="catCount">0</span>类</div>
+    <div class="stat-badge" id="masteryBadge" style="cursor:pointer;" onclick="openQuiz()" title="点击进入背单词"><span id="masteredCount">0</span>已掌握</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content" id="content"></div>
+</div>
+
+<!-- Add Word Modal -->
+<div class="modal-overlay" id="modalAddWord">
+  <div class="modal">
+    <h2>&#128221; 添加新词汇</h2>
+    <label>English</label><input id="newEn" placeholder="e.g. laminar flow">
+    <label>中文</label><input id="newCn" placeholder="e.g. 层流">
+    <label>语境 (选填)</label><input id="newCtx" placeholder="e.g. the flow remains laminar at low Re">
+    <label>分类</label><select id="newCatSelect"></select>
+    <div class="btn-row"><button class="btn" onclick="closeAllModals()">取消</button><button class="btn primary" onclick="submitWord()">添加</button></div>
+  </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal-overlay" id="modalAddCat">
+  <div class="modal">
+    <h2>&#128194; 新建分类</h2>
+    <label>中文名</label><input id="newCatTitle" placeholder="e.g. 湍流理论">
+    <label>English</label><input id="newCatTitleEn" placeholder="e.g. Turbulence Theory">
+    <label>Emoji (选填)</label><input id="newCatEmoji" placeholder="e.g. 🔬" maxlength="4">
+    <div class="btn-row"><button class="btn" onclick="closeAllModals()">取消</button><button class="btn primary" onclick="submitCat()">创建</button></div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="modalImport">
+  <div class="modal">
+    <h2>&#128194; 导入</h2>
+    <textarea id="importArea" rows="8" style="font-family:monospace;font-size:11px;resize:vertical;" placeholder="粘贴JSON..."></textarea>
+    <div class="btn-row"><button class="btn" onclick="closeAllModals()">取消</button><button class="btn danger" onclick="resetData()">恢复出厂</button><button class="btn primary" onclick="submitImport()">导入合并</button></div>
+  </div>
+</div>
+
+<!-- Sync Modal (body rendered dynamically by sync.js) -->
+<div class="modal-overlay" id="syncModal">
+  <div class="modal" style="width:520px;">
+    <h2>&#128260; 多设备云同步</h2>
+    <div id="syncModalBody"></div>
+    <!-- Clipboard fallback -->
+    <details style="margin-top:12px;border-top:1px solid #334155;padding-top:10px;">
+      <summary style="font-size:11px;color:#475569;cursor:pointer;">&#128203; 剪贴板传输（无需 GitHub 的备用方案）</summary>
+      <div style="margin-top:8px;">
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <button class="btn" onclick="generateSyncCode('all')" style="flex:1;font-size:10px;">&#128230; 生成完整同步码</button>
+          <button class="btn" onclick="generateSyncCode('vocab')" style="flex:1;font-size:10px;">仅词库</button>
+        </div>
+        <textarea id="syncExportArea" rows="2" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px;font-size:10px;color:#94a3b8;font-family:monospace;resize:vertical;display:none;" readonly></textarea>
+        <div id="syncExportHint" style="font-size:10px;color:#475569;margin-top:4px;display:none;"></div>
+        <textarea id="syncImportArea" rows="2" style="width:100%;margin-top:6px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px;font-size:10px;color:#f1f5f9;font-family:monospace;resize:vertical;" placeholder="粘贴同步码..."></textarea>
+        <button class="btn" onclick="applySyncCode()" style="width:100%;margin-top:4px;font-size:10px;">&#10004; 应用同步码</button>
+      </div>
+    </details>
+    <div class="btn-row"><button class="btn" onclick="closeModal('syncModal')">关闭</button></div>
+  </div>
+</div>
+
+<!-- Quiz Overlay -->
+<div class="quiz-overlay" id="quizOverlay">
+  <div class="quiz-top">
+    <div class="title">&#128218; 背单词</div>
+    <div class="pool-info">
+      <span class="pool-tag pool-a">未掌握 <span id="qPoolA">0</span></span>
+      <span class="pool-tag pool-b">已掌握 <span id="qPoolB">0</span></span>
+    </div>
+    <button class="btn" onclick="closeQuiz()">&#10005; 退出</button>
+  </div>
+  <div id="quizContent"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="shared/utils.js?v=1773955514"></script>
+<script src="shared/sync.js?v=1773955514"></script>
+<script>
+// ==DEFAULT_DATA_BEGIN==
+const DEFAULT_DATA = [
+  { id:"equipment",emoji:"🔧",title:"实验装置",titleEn:"Experimental Equipment",words:[["towing tank","拖曳水池","experiments were conducted in a towing tank"],["carriage","小车/拖车","the carriage translates at constant velocity"],["nozzle","喷嘴","water exits through a circular nozzle"],["orifice","孔口","flow rate is controlled by the orifice diameter"],["specimen / test piece","试件","the specimen was clamped at both ends"],["fixture / mount","夹具/安装座","the plate was attached to the fixture"],["actuator","执行器/驱动器","a linear actuator drives the plate"],["transducer","传感器","a force transducer measures the load"],["strain gauge","应变片","strain gauges were bonded to the surface"],["flow meter","流量计","instantaneous flow rate was recorded"],["high-speed camera","高速相机","images were captured at 1000 fps"],["dynamometer","测力计","a four-sensor dynamometer records forces"],["oscilloscope","示波器","voltage readings recorded using an oscilloscope"],["rubber mallet","橡胶锤","the plate was struck with a large rubber mallet"]]},
+  { id:"dic",emoji:"📷",title:"DIC / 光学测量",titleEn:"DIC & Optical Measurement",words:[["Digital Image Correlation (DIC)","数字图像相关法","full-field displacement was measured using DIC"],["speckle pattern","散斑图案","a random speckle pattern was applied"],["subset (size / spacing)","子集（大小/间距）","subset size of 31×31 pixels was used"],["region of interest (ROI)","感兴趣区域","ROI covers the central 70% of the plate"],["correlation coefficient","相关系数","high CC indicates good matching"],["stereo calibration","立体标定","stereo calibration using a checkerboard"],["reprojection error","重投影误差","mean reprojection error was 0.12 pixels"],["triangulation","三角化","3D reconstruction via stereo triangulation"],["out-of-plane displacement","面外位移","out-of-plane deflection w(x,y,t)"],["in-plane displacement","面内位移","in-plane displacement u(x,y,t)"],["full-field","全场","full-field strain maps were obtained"],["spatial resolution","空间分辨率","spatial resolution of 5 mm"],["temporal resolution","时间分辨率","temporal resolution of 1 ms (1000 fps)"],["Particle Image Velocimetry (PIV)","粒子图像测速","PIV measurements at 70% span"],["Scheimpflug adapter","沙姆弗吕格适配器","ensures focus on tilted planes"]]},
+  { id:"structure",emoji:"🏗️",title:"结构力学",titleEn:"Structural Mechanics",words:[["deflection","挠度/偏转","maximum deflection at the center"],["deformation","变形","large deformation regime"],["strain","应变","principal strain components"],["stress","应力","von Mises stress distribution"],["stiffness","刚度","bending stiffness D = Eh³/12(1-ν²)"],["compliance / flexibility","柔度/柔性","increasing compliance leads to larger deflection"],["elastic modulus (Young's modulus)","弹性模量","E = 68.9 GPa for aluminum 6061-T6"],["Poisson's ratio","泊松比","ν = 0.33"],["natural frequency","固有频率","the first natural frequency f₁"],["mode shape","振型/模态形状","the first bending mode shape"],["eigenfrequency","特征频率","eigenfrequency analysis in COMSOL"],["damping ratio","阻尼比","ζ = 0.02 for the dry condition"],["added mass","附加质量","added mass due to water contact"],["resonance","共振","resonance occurs at f = fₙ"],["pinned / simply supported","铰接/简支","pinned at both ends"],["clamped / fixed","固支/固定端","clamped boundary condition"],["free edge","自由边","two free edges along the span"],["bending","弯曲","bending deformation of the plate"],["buckling","屈曲","the membrane may buckle under compression"],["aspect ratio","展弦比/长宽比","plate aspect ratio AR = L/B"]]},
+  { id:"fluid",emoji:"🌊",title:"流体力学",titleEn:"Fluid Mechanics",words:[["jet","射流","a water jet impinges on the plate"],["impingement","冲击/撞击","jet impingement on a flat surface"],["impact / slamming","砰击","water entry impact generates large loads"],["spray root","喷根","spray root propagation along the plate"],["splash","飞溥","splash sheet formation upon impact"],["stagnation point","驻点","stagnation point pressure is maximum"],["boundary layer","边界层","a thin boundary layer develops"],["shear layer","剪切层","the shear layer feeds the vortex"],["vortex (pl. vortices)","涡/涡旋","edge vortex formation"],["vorticity","涡量","non-dimensional vorticity ω*"],["circulation","环量","circulation growth Γ(t)"],["wake","尾迹/尾流","wake structure behind the plate"],["Reynolds number (Re)","雷诺数","Re = ρUL/μ"],["Froude number (Fr)","弗劳德数","Fr = V/√(gL)"],["momentum flux","动量通量","jet momentum flux = ρAV²"],["pressure distribution","压力分布","on the plate surface"],["flow separation","流动分离","separation at the trailing edge"],["quiescent","静止的","quiescent water surface"],["free surface","自由表面/自由液面","undisturbed free surface"],["inviscid","无粘的","assuming inviscid flow"],["irrotational","无旋的","irrotational flow assumption"]]},
+  { id:"dimless",emoji:"📐",title:"无量纲参数",titleEn:"Dimensionless Parameters",words:[["Reynolds number Re","雷诺数","Re = ρUL/μ"],["Froude number Fr","弗劳德数","Fr = V/√(gL)"],["acceleration number Ac","加速数","Ac = a·c/U²"],["flexural rigidity ratio R_D","弯曲刚度比","R_D = ρV²L³/D"],["thickness ratio R_T","厚度比","R_T = h/L"],["added mass ratio M","附加质量比","M = m_added/m_plate"],["Strouhal number St","斯特劳哈尔数","St = fL/U"],["Weber number We","韦伯数","We = ρV²L/σ"]]},
+  { id:"writing",emoji:"✍️",title:"论文写作套话",titleEn:"Academic Writing Phrases",words:[["In the present work / herein","在本研究中","Introduction 开头"],["To the best of our knowledge","据我们所知","强调创新性"],["It is found that...","发现……","Results 描述"],["This is attributed to...","这归因于……","Discussion 解释"],["is consistent with","与……一致","对比前人"],["in good/reasonable agreement","吻合良好","实验 vs 计算"],["discrepancy","偏差/不一致","解释偏差"],["qualitatively / quantitatively","定性 / 定量","描述吻合程度"],["non-dimensional / dimensionless","无量纲的","无量纲化"],["hereinafter referred to as","以下简称","定义缩写"],["schematic diagram","示意图","Figure 1 shows a schematic diagram"],["for the sake of brevity","为简洁起见","省略内容"],["beyond the scope of","超出范围","不讨论"],["warrants further investigation","值得进一步研究","Conclusion 展望"],["the reader is referred to","读者可参阅","引用文献"]]},
+  { id:"data",emoji:"📊",title:"数据描述",titleEn:"Data Description",words:[["increases/decreases monotonically","单调递增/递减","曲线趋势"],["exhibits a peak at...","出现峰值","force exhibits a peak at t = 0.5"],["plateaus / levels off","趋于平稳","displacement plateaus after t = 2"],["scatter / spread","散布/离散","scatter within 5%"],["collapses onto a single curve","归并到一条曲线","无量纲化成功的标志"],["scales with / scales as","正比于/缩放","force scales with V²"],["order of magnitude","量级","differs by 10×"],["within experimental uncertainty","在实验误差内","验证一致性"],["systematically overestimates","系统性高估","model overestimates"],["root mean square (RMS)","均方根","RMS error 3%"],["ensemble average","系综平均","averaged over 10 trials"],["normalized / non-dimensionalized","归一化/无量纲化","normalized by peak value"]]}
+];
+// ==DEFAULT_DATA_END==
+
+// ==================== STORAGE ====================
+const STORAGE_KEY = "fsi_vocab_data_v1";
+const QUIZ_KEY = "fsi_vocab_quiz_v1";
+let SERVER_MODE = false;
+let API_BASE = "";
+
+async function detectServer() {
+  if (location.protocol === "file:") return false;
+  try {
+    const r = await fetch("/api/ping", { signal: AbortSignal.timeout(1500) });
+    const j = await r.json();
+    if (j.ok && j.mode === "server") { API_BASE = ""; return true; }
+  } catch(e) {}
+  return false;
+}
+
+function loadDataLocal() { try { const s = localStorage.getItem(STORAGE_KEY); if(s) return JSON.parse(s); } catch(e){} return null; }
+function saveDataLocal(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+function loadQuizLocal() { try { const s = localStorage.getItem(QUIZ_KEY); if(s) return JSON.parse(s); } catch(e){} return null; }
+function saveQuizLocal(q) { localStorage.setItem(QUIZ_KEY, JSON.stringify(q)); }
+
+async function loadDataServer() { try { const r = await fetch(API_BASE+"/api/vocab"); const d = await r.json(); if(Array.isArray(d)&&d.length) return d; } catch(e){} return null; }
+async function saveDataServer(d) { try { await fetch(API_BASE+"/api/vocab",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); } catch(e){ console.warn("server save failed"); saveDataLocal(d); } }
+async function loadQuizServer() { try { const r = await fetch(API_BASE+"/api/quiz"); const d = await r.json(); if(d&&typeof d==="object") return d; } catch(e){} return null; }
+async function saveQuizServer(q) { try { await fetch(API_BASE+"/api/quiz",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(q)}); } catch(e){ saveQuizLocal(q); } }
+
+function mergeDefaults(existing) {
+  const merged = JSON.parse(JSON.stringify(existing));
+  DEFAULT_DATA.forEach(defCat => {
+    const exCat = merged.find(c => c.id === defCat.id);
+    if (exCat) {
+      (defCat.words || []).forEach(dw => {
+        if (!exCat.words.some(ew => ew[0].toLowerCase() === dw[0].toLowerCase())) exCat.words.push(dw);
+      });
+    } else {
+      merged.push(JSON.parse(JSON.stringify(defCat)));
+    }
+  });
+  return merged;
+}
+
+function loadData() {
+  const saved = loadDataLocal();
+  if (saved) {
+    const merged = mergeDefaults(saved);
+    if (JSON.stringify(merged) !== JSON.stringify(saved)) saveDataLocal(merged);
+    return merged;
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+function saveData(d) {
+  saveDataLocal(d);
+  if (SERVER_MODE) saveDataServer(d);
+}
+function loadQuiz() { return loadQuizLocal() || {}; }
+function saveQuiz(q) { saveQuizLocal(q); if (SERVER_MODE) saveQuizServer(q); }
+
+let DATA = loadData();
+let QUIZ = loadQuiz();
+let currentSort = "none";
+
+// ==================== VOCAB FOLDERS (Two-level tree) ====================
+const VFOLDERS_KEY = "fsi_vocab_folders_v1";
+function loadVFolders() { try { const s = localStorage.getItem(VFOLDERS_KEY); if(s) return JSON.parse(s); } catch(e){} return []; }
+function saveVFolders() { localStorage.setItem(VFOLDERS_KEY, JSON.stringify(VFOLDERS)); }
+let VFOLDERS = loadVFolders();
+let currentView = "all"; // "all" | folder ID
+let expandedFolders = JSON.parse(localStorage.getItem("fsi_vfolder_expanded") || "{}");
+function saveExpandedState() { localStorage.setItem("fsi_vfolder_expanded", JSON.stringify(expandedFolders)); }
+
+// ==================== MERGE FUNCTIONS ====================
+function mergeVocab(localData, remoteData) {
+  if (!remoteData || !Array.isArray(remoteData)) return localData;
+  const merged = JSON.parse(JSON.stringify(localData));
+  remoteData.forEach(remoteCat => {
+    const localCat = merged.find(c => c.id === remoteCat.id || c.title === remoteCat.title);
+    if (localCat) {
+      (remoteCat.words || []).forEach(rw => {
+        if (!localCat.words.some(lw => lw[0].toLowerCase() === rw[0].toLowerCase())) localCat.words.push(rw);
+      });
+    } else {
+      merged.push(JSON.parse(JSON.stringify(remoteCat)));
+    }
+  });
+  return merged;
+}
+
+function mergeQuiz(localQ, remoteQ) {
+  if (!remoteQ || typeof remoteQ !== "object") return localQ;
+  const merged = { ...localQ };
+  Object.keys(remoteQ).forEach(k => {
+    if (!merged[k] || (remoteQ[k].lastReview || 0) > (merged[k].lastReview || 0)) merged[k] = remoteQ[k];
+  });
+  return merged;
+}
+
+// ==================== REGISTER SYNC ====================
+registerSyncApp({
+  id: "vocab",
+  gistFile: "fsi_vocab_sync.json",
+  syncTsKey: "fsi_last_sync_ts",
+  createGistDescription: "FSI Vocab Sync - \u6D41\u56FA\u8026\u5408\u5B66\u672F\u82F1\u8BED\u8BCD\u5E93",
+  getLocalData: () => ({ vocab: DATA, quiz: QUIZ, vfolders: VFOLDERS }),
+  applyRemoteData: (remote) => {
+    if (remote.vocab) DATA = mergeVocab(DATA, remote.vocab);
+    if (remote.quiz) QUIZ = mergeQuiz(QUIZ, remote.quiz);
+    if (remote.vfolders && Array.isArray(remote.vfolders)) {
+      remote.vfolders.forEach(rf => { if (!VFOLDERS.some(lf => lf.id === rf.id)) VFOLDERS.push(rf); });
+      saveVFolders();
+    }
+    saveDataLocal(DATA);
+    saveQuizLocal(QUIZ);
+  },
+  onSyncComplete: () => {
+    render(document.getElementById("searchInput").value.trim());
+    updateMasteryCount();
+  }
+});
+
+// ==================== CLIPBOARD SYNC (backup) ====================
+function generateSyncCode(mode) {
+  let payload;
+  if (mode === "all") payload = { v: 1, t: "all", d: DATA, q: QUIZ };
+  else if (mode === "vocab") payload = { v: 1, t: "vocab", d: DATA };
+  else payload = { v: 1, t: "quiz", q: QUIZ };
+  const json = JSON.stringify(payload);
+  const code = "FSIV1:" + btoa(unescape(encodeURIComponent(json)));
+  const area = document.getElementById("syncExportArea");
+  const hint = document.getElementById("syncExportHint");
+  area.value = code; area.style.display = "block"; hint.style.display = "block";
+  area.select();
+  try {
+    navigator.clipboard.writeText(code).then(() => {
+      hint.innerHTML = '\u2705 <b style="color:#4ade80;">\u5DF2\u590D\u5236!</b> ' + (code.length/1024).toFixed(1) + 'KB';
+    }).catch(() => { hint.textContent = '\u8BF7\u624B\u52A8\u590D\u5236\u3002' + (code.length/1024).toFixed(1) + 'KB'; });
+  } catch(e) { hint.textContent = '\u8BF7\u624B\u52A8\u590D\u5236\u3002'; }
+}
+
+function applySyncCode() {
+  const raw = document.getElementById("syncImportArea").value.trim();
+  if (!raw) { alert("\u8BF7\u5148\u7C98\u8D34\u540C\u6B65\u7801"); return; }
+  try {
+    let json;
+    if (raw.startsWith("FSIV1:")) json = decodeURIComponent(escape(atob(raw.substring(6))));
+    else json = raw;
+    const payload = JSON.parse(json);
+    if (payload.v !== 1) throw new Error("version mismatch");
+    let imported = { vocab: false, quiz: false };
+    if (payload.d && Array.isArray(payload.d) && payload.d.length) { DATA = payload.d; saveData(DATA); imported.vocab = true; }
+    if (payload.q && typeof payload.q === "object") { QUIZ = payload.q; saveQuiz(QUIZ); imported.quiz = true; }
+    render(document.getElementById("searchInput").value.trim());
+    const parts = [];
+    if (imported.vocab) parts.push("\u8BCD\u5E93(" + DATA.reduce((s,c)=>s+c.words.length,0) + "\u8BCD)");
+    if (imported.quiz) parts.push("\u80CC\u5355\u8BCD\u8FDB\u5EA6");
+    alert("\u2705 \u540C\u6B65\u6210\u529F\uFF01\u5DF2\u5BFC\u5165: " + parts.join(" + "));
+  } catch(e) { alert("\u274C \u540C\u6B65\u7801\u65E0\u6548: " + e.message); }
+}
+
+// ==================== SORT ====================
+function setSort(mode) {
+  currentSort = mode;
+  document.querySelectorAll("#sortNone,#sortEn,#sortCn").forEach(b => b.classList.remove("active-sort"));
+  document.getElementById(mode === "en" ? "sortEn" : mode === "cn" ? "sortCn" : "sortNone").classList.add("active-sort");
+  render(document.getElementById("searchInput").value.trim());
+}
+
+function sortWords(words, mode) {
+  if (mode === "none") return words;
+  const copy = [...words];
+  if (mode === "en") copy.sort((a,b) => a[0].toLowerCase().localeCompare(b[0].toLowerCase()));
+  if (mode === "cn") copy.sort((a,b) => a[1].localeCompare(b[1], "zh-CN"));
+  return copy;
+}
+
+// ==================== RENDER ====================
+function render(filter) {
+  filter = filter || "";
+  const sidebar = document.getElementById("sidebar");
+  const content = document.getElementById("content");
+  const lf = filter.toLowerCase();
+  const totalWordCount = DATA.reduce((s,c) => s + c.words.length, 0);
+
+  // ---- Build sidebar tree ----
+  let sHTML = '<div class="sidebar-title">\u5206\u7C7B\u5BFC\u822A</div>';
+  // Total vocab entry
+  sHTML += '<div class="nav-total'+(currentView==="all"?' active':'')+'" onclick="setView(\'all\')"><span>\u{1F4DA}</span> \u603B\u8BCD\u5E93 <span class="count">'+totalWordCount+'</span></div>';
+
+  // Folders sorted by order
+  const sortedFolders = VFOLDERS.slice().sort((a,b) => (a.order||0) - (b.order||0));
+  sortedFolders.forEach(f => {
+    const childCats = DATA.filter(c => c.folderId === f.id);
+    const fWordCount = childCats.reduce((s,c) => s + c.words.length, 0);
+    const isExpanded = expandedFolders[f.id];
+    const isActive = currentView === f.id;
+    sHTML += '<div class="nav-folder'+(isExpanded?' expanded':'')+(isActive?' active':'')+'" data-folder-id="'+f.id+'" onclick="setView(\''+f.id+'\')" oncontextmenu="showVFolderMenu(event,\''+f.id+'\')">' +
+      '<span class="arrow">\u25B6</span><span>'+(f.emoji||'\u{1F4C1}')+'</span> '+escHtml(f.name)+' <span class="count">'+fWordCount+'</span></div>';
+    sHTML += '<div class="folder-children'+(isExpanded?' show':'')+'" data-folder-id="'+f.id+'">';
+    childCats.forEach(cat => {
+      const ci = DATA.indexOf(cat);
+      const wc = cat.words.length;
+      sHTML += '<div class="nav-item" draggable="true" data-cat-index="'+ci+'" onclick="scrollToCat(\''+cat.id+'\')"><span class="emoji">'+cat.emoji+'</span>'+cat.title+'<span class="count">'+wc+'</span></div>';
+    });
+    sHTML += '</div>';
+  });
+
+  // Uncategorized categories (no folderId)
+  const uncatCats = DATA.filter(c => !c.folderId);
+  if (uncatCats.length && VFOLDERS.length) {
+    sHTML += '<div class="sidebar-title" style="margin-top:6px">\u672A\u5206\u7EC4</div>';
+  }
+  uncatCats.forEach(cat => {
+    const ci = DATA.indexOf(cat);
+    const wc = cat.words.length;
+    sHTML += '<div class="nav-item" draggable="true" data-cat-index="'+ci+'" onclick="scrollToCat(\''+cat.id+'\')"><span class="emoji">'+cat.emoji+'</span>'+cat.title+'<span class="count">'+wc+'</span></div>';
+  });
+
+  sHTML += '<button class="folder-add-btn" onclick="addVFolder()">+ \u65B0\u5EFA\u6587\u4EF6\u5939</button>';
+
+  // ---- Build content area ----
+  let cHTML = "", vc = 0, totalW = 0;
+  // Determine which categories to show based on currentView
+  const visibleCats = currentView === "all" ? DATA
+    : DATA.filter(c => c.folderId === currentView || (!c.folderId && currentView === "__uncat__"));
+
+  visibleCats.forEach(cat => {
+    const ci = DATA.indexOf(cat);
+    let words = filter ? cat.words.filter(w => w[0].toLowerCase().includes(lf)||w[1].includes(filter)||w[2].toLowerCase().includes(lf)) : cat.words;
+    if (!words.length && filter) return;
+    words = sortWords(words, currentSort);
+    vc++; totalW += words.length;
+    const isOpen = filter ? true : vc <= 2;
+    let wHTML = "";
+    words.forEach(w => {
+      const ri = cat.words.indexOf(w);
+      const hl = filter && (w[0].toLowerCase().includes(lf)||w[1].includes(filter)) ? "highlight" : "";
+      wHTML += '<div class="word-row '+hl+'"><div class="word-en">'+highlightText(w[0],filter)+'</div><div class="word-cn">'+highlightText(w[1],filter)+'</div><div class="word-ctx">'+highlightText(w[2],filter)+'</div><div class="word-del" title="\u5220\u9664" onclick="deleteWord('+ci+','+ri+')">\u2715</div></div>';
+    });
+    cHTML += '<div class="category '+(isOpen?'open':'')+'" id="cat-'+cat.id+'"><div class="cat-header" onclick="this.parentElement.classList.toggle(\'open\')"><span class="emoji">'+cat.emoji+'</span><span class="title">'+cat.title+'</span><span class="title-en">'+cat.titleEn+'</span><span class="count">'+words.length+'</span><span class="arrow">\u25B6</span></div><div class="cat-body"><div class="table-header"><div>English</div><div>\u4E2D\u6587</div><div>Context</div><div></div></div>'+wHTML+'</div></div>';
+  });
+  if (!totalW && filter) cHTML = '<div class="no-results"><div class="big">\u{1F50D}</div>\u6CA1\u6709\u627E\u5230 "'+filter+'"</div>';
+  sidebar.innerHTML = sHTML; content.innerHTML = cHTML;
+  document.getElementById("totalCount").textContent = totalWordCount;
+  document.getElementById("catCount").textContent = DATA.length;
+  updateMasteryCount();
+  setupCatDrag();
+}
+
+function setView(viewId) {
+  currentView = viewId;
+  // Toggle folder expansion when clicking a folder
+  if (viewId !== "all" && VFOLDERS.some(f => f.id === viewId)) {
+    expandedFolders[viewId] = !expandedFolders[viewId];
+    saveExpandedState();
+  }
+  render(document.getElementById("searchInput").value.trim());
+}
+
+function escHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+// ==================== VOCAB FOLDER CRUD ====================
+function addVFolder() {
+  const name = prompt("\u6587\u4EF6\u5939\u540D\u79F0\uFF1A");
+  if (!name || !name.trim()) return;
+  const emoji = prompt("\u56FE\u6807 (emoji\uFF0C\u7559\u7A7A\u9ED8\u8BA4\u{1F4C1})\uFF1A") || "\u{1F4C1}";
+  VFOLDERS.push({ id: "vf_" + Date.now(), name: name.trim(), emoji: emoji.trim(), order: VFOLDERS.length });
+  saveVFolders();
+  render(document.getElementById("searchInput").value.trim());
+  debouncedPush("新建文件夹");
+}
+
+function showVFolderMenu(e, folderId) {
+  e.preventDefault(); e.stopPropagation();
+  const action = prompt("\u64CD\u4F5C\uFF1A\u8F93\u5165\u65B0\u540D\u79F0\u91CD\u547D\u540D\uFF0C\u6216\u8F93\u5165 'delete' \u5220\u9664\u6587\u4EF6\u5939");
+  if (!action) return;
+  if (action.toLowerCase() === "delete") {
+    if (!confirm("\u5220\u9664\u6B64\u6587\u4EF6\u5939\uFF1F\u5206\u7C7B\u4F1A\u53D8\u4E3A\u672A\u5206\u7EC4")) return;
+    DATA.forEach(c => { if (c.folderId === folderId) c.folderId = null; });
+    VFOLDERS = VFOLDERS.filter(f => f.id !== folderId);
+    saveVFolders(); saveData(DATA);
+    if (currentView === folderId) currentView = "all";
+  } else {
+    const f = VFOLDERS.find(f => f.id === folderId);
+    if (f) f.name = action.trim();
+    saveVFolders();
+  }
+  render(document.getElementById("searchInput").value.trim());
+  debouncedPush("编辑文件夹");
+}
+
+// ==================== 分类拖拽排序 + 拖入文件夹 ====================
+function setupCatDrag() {
+  let dragSrcIdx = null;
+  // Category items: drag to reorder or move into folders
+  document.querySelectorAll(".nav-item[draggable]").forEach(item => {
+    item.addEventListener("dragstart", function(e) {
+      dragSrcIdx = parseInt(this.dataset.catIndex);
+      this.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/cat-index", dragSrcIdx);
+    });
+    item.addEventListener("dragend", function() {
+      this.classList.remove("dragging");
+      document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+    });
+    item.addEventListener("dragover", function(e) {
+      e.preventDefault(); e.dataTransfer.dropEffect = "move";
+      this.classList.add("drag-over");
+    });
+    item.addEventListener("dragleave", function() { this.classList.remove("drag-over"); });
+    item.addEventListener("drop", function(e) {
+      e.preventDefault(); this.classList.remove("drag-over");
+      const targetIdx = parseInt(this.dataset.catIndex);
+      if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+      const moved = DATA.splice(dragSrcIdx, 1)[0];
+      DATA.splice(targetIdx, 0, moved);
+      saveData(DATA);
+      render(document.getElementById("searchInput").value.trim());
+      debouncedPush("分类排序");
+    });
+  });
+
+  // Folders: accept category drops to move category into folder
+  document.querySelectorAll(".nav-folder[data-folder-id]").forEach(folder => {
+    folder.addEventListener("dragover", function(e) {
+      e.preventDefault(); e.dataTransfer.dropEffect = "move";
+      this.classList.add("drag-over");
+    });
+    folder.addEventListener("dragleave", function() { this.classList.remove("drag-over"); });
+    folder.addEventListener("drop", function(e) {
+      e.preventDefault(); this.classList.remove("drag-over");
+      const catIdx = parseInt(e.dataTransfer.getData("text/cat-index"));
+      if (isNaN(catIdx)) return;
+      const folderId = this.dataset.folderId;
+      DATA[catIdx].folderId = folderId;
+      expandedFolders[folderId] = true; saveExpandedState();
+      saveData(DATA);
+      render(document.getElementById("searchInput").value.trim());
+      debouncedPush("移入文件夹");
+    });
+  });
+
+  // "总词库" and sidebar: accept drops to remove from folder (move to root)
+  const totalEl = document.querySelector(".nav-total");
+  if (totalEl) {
+    totalEl.addEventListener("dragover", function(e) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; this.classList.add("drag-over"); });
+    totalEl.addEventListener("dragleave", function() { this.classList.remove("drag-over"); });
+    totalEl.addEventListener("drop", function(e) {
+      e.preventDefault(); this.classList.remove("drag-over");
+      const catIdx = parseInt(e.dataTransfer.getData("text/cat-index"));
+      if (isNaN(catIdx)) return;
+      DATA[catIdx].folderId = null;
+      saveData(DATA);
+      render(document.getElementById("searchInput").value.trim());
+      debouncedPush("移出文件夹");
+    });
+  }
+}
+
+function highlightText(t,f){ if(!f) return t; return t.replace(new RegExp('('+f.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark style="background:#fbbf24;color:#0f172a;border-radius:2px;padding:0 1px;">$1</mark>'); }
+function scrollToCat(id){ const el=document.getElementById("cat-"+id); if(el){el.classList.add("open");el.scrollIntoView({behavior:"smooth",block:"start"});} document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active")); event.currentTarget.classList.add("active"); }
+
+// ==================== CRUD ====================
+function openAddWord(){ const s=document.getElementById("newCatSelect"); s.innerHTML=DATA.map((c,i)=>'<option value="'+i+'">'+c.emoji+' '+c.title+'</option>').join(""); document.getElementById("newEn").value=""; document.getElementById("newCn").value=""; document.getElementById("newCtx").value=""; showModal("modalAddWord"); setTimeout(()=>document.getElementById("newEn").focus(),100); }
+function submitWord(){ const en=document.getElementById("newEn").value.trim(),cn=document.getElementById("newCn").value.trim(),ctx=document.getElementById("newCtx").value.trim()||"",ci=parseInt(document.getElementById("newCatSelect").value); if(!en||!cn){alert("\u82F1\u6587\u548C\u4E2D\u6587\u4E0D\u80FD\u4E3A\u7A7A");return;} DATA[ci].words.push([en,cn,ctx]); saveData(DATA); closeAllModals(); render(document.getElementById("searchInput").value.trim()); debouncedPush("添加词汇"); }
+function openAddCat(){ document.getElementById("newCatTitle").value=""; document.getElementById("newCatTitleEn").value=""; document.getElementById("newCatEmoji").value=""; showModal("modalAddCat"); setTimeout(()=>document.getElementById("newCatTitle").focus(),100); }
+function submitCat(){ const t=document.getElementById("newCatTitle").value.trim(),te=document.getElementById("newCatTitleEn").value.trim(); let em=document.getElementById("newCatEmoji").value.trim(); if(!t){alert("\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A");return;} const fb=["\u{1F4D6}","\u{1F52C}","\u{1F9EA}","\u2699\uFE0F","\u{1F4DD}","\u{1F4A1}","\u{1F30D}","\u{1F680}"]; if(!em)em=fb[DATA.length%fb.length]; DATA.push({id:"cat_"+Date.now(),emoji:em,title:t,titleEn:te||t,words:[]}); saveData(DATA); closeAllModals(); render(); debouncedPush("新建分类"); }
+function deleteWord(ci,wi){ const w=DATA[ci].words[wi]; if(!confirm('\u5220\u9664 "'+w[0]+'" ?')) return; DATA[ci].words.splice(wi,1); saveData(DATA); render(document.getElementById("searchInput").value.trim()); debouncedPush("删除词汇"); }
+function exportData(){ const j=JSON.stringify(DATA,null,2); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([j],{type:"application/json"})); a.download="fsi_vocab_"+new Date().toISOString().slice(0,10)+".json"; a.click(); }
+function importData(){ document.getElementById("importArea").value=""; showModal("modalImport"); }
+function submitImport(){ try{ const imp=JSON.parse(document.getElementById("importArea").value); if(!Array.isArray(imp)) throw new Error("not array"); imp.forEach(ic=>{const ex=DATA.find(c=>c.id===ic.id||c.title===ic.title); if(ex){(ic.words||[]).forEach(w=>{if(!ex.words.some(e=>e[0]===w[0]))ex.words.push(w);});}else DATA.push(ic);}); saveData(DATA); closeAllModals(); render(); alert("\u5BFC\u5165\u6210\u529F"); debouncedPush("导入词库"); }catch(e){ alert("JSON\u683C\u5F0F\u9519\u8BEF: "+e.message); } }
+function resetData(){ if(!confirm("\u786E\u5B9A\u6062\u590D\u51FA\u5382\uFF1F\u4F1A\u6E05\u9664\u6240\u6709\u81EA\u5DF1\u6DFB\u52A0\u7684\u8BCD\u6C47\uFF01")) return; localStorage.removeItem(STORAGE_KEY); DATA=JSON.parse(JSON.stringify(DEFAULT_DATA)); closeAllModals(); render(); }
+
+// ==================== QUIZ SYSTEM ====================
+const STREAK_THRESHOLD = 3;
+function wordKey(en) { return en.toLowerCase().trim(); }
+function getAllWords() { const all=[]; DATA.forEach(cat=>cat.words.forEach(w=>all.push({en:w[0],cn:w[1],ctx:w[2],catTitle:cat.title,catEmoji:cat.emoji}))); return all; }
+function getQuizState(en) { const k=wordKey(en); if(!QUIZ[k]) QUIZ[k]={streak:0,pool:"a",lastReview:0}; return QUIZ[k]; }
+function updateMasteryCount() { const all=getAllWords(); let m=0; all.forEach(w=>{if(getQuizState(w.en).pool==="b") m++;}); document.getElementById("masteredCount").textContent=m; }
+
+let quizWords=[], quizIdx=0, quizMode="", quizAnswered=0, quizCorrect=0;
+
+function openQuiz() { document.getElementById("quizOverlay").classList.add("show"); showQuizMenu(); }
+function closeQuiz() { document.getElementById("quizOverlay").classList.remove("show"); updateMasteryCount(); }
+
+function showQuizMenu() {
+  const all=getAllWords(); let poolA=0,poolB=0;
+  all.forEach(w=>{if(getQuizState(w.en).pool==="b") poolB++; else poolA++;});
+  document.getElementById("qPoolA").textContent=poolA; document.getElementById("qPoolB").textContent=poolB;
+  document.getElementById("quizContent").innerHTML=`
+    <div class="quiz-mode-select"><div class="title">\u9009\u62E9\u7EC3\u4E60\u6A21\u5F0F</div><div class="mode-cards">
+      <div class="mode-card" onclick="startQuiz('a')"><div class="icon">\u{1F4D5}</div><div class="name">\u672A\u638C\u63E1\u8BCD\u5E93</div><div class="desc">${poolA} \u4E2A\u8BCD\u7B49\u5F85\u8BB0\u5FC6<br>\u8FDE\u7EED\u7B54\u5BF9 ${STREAK_THRESHOLD} \u6B21\u624D\u7B97\u638C\u63E1</div></div>
+      <div class="mode-card" onclick="startQuiz('b')"><div class="icon">\u{1F4D7}</div><div class="name">\u5DF2\u638C\u63E1\u590D\u4E60</div><div class="desc">${poolB} \u4E2A\u8BCD\u5DF2\u638C\u63E1<br>\u7B54\u9519\u4F1A\u6253\u56DE\u672A\u638C\u63E1</div></div>
+      <div class="mode-card" onclick="startQuiz('all')"><div class="icon">\u{1F4DA}</div><div class="name">\u5168\u90E8\u8BCD\u6C47</div><div class="desc">${all.length} \u4E2A\u8BCD\u968F\u673A\u6D4B\u8BD5</div></div>
+      <div class="mode-card" onclick="startQuiz('en2cn')"><div class="icon">\u{1F1FA}\u{1F1F8}\u2192\u{1F1E8}\u{1F1F3}</div><div class="name">\u82F1\u2192\u4E2D \u53CD\u5411</div><div class="desc">\u770B\u4E2D\u6587\u731C\u82F1\u6587<br>\u68C0\u6D4B\u4E3B\u52A8\u8F93\u51FA\u80FD\u529B</div></div>
+    </div></div>`;
+}
+
+function startQuiz(mode) {
+  quizMode=mode; quizAnswered=0; quizCorrect=0;
+  const all=getAllWords();
+  if(mode==="a") quizWords=all.filter(w=>getQuizState(w.en).pool==="a");
+  else if(mode==="b") quizWords=all.filter(w=>getQuizState(w.en).pool==="b");
+  else quizWords=[...all];
+  for(let i=quizWords.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[quizWords[i],quizWords[j]]=[quizWords[j],quizWords[i]];}
+  quizWords=quizWords.slice(0,20); quizIdx=0;
+  if(!quizWords.length){document.getElementById("quizContent").innerHTML='<div class="quiz-summary"><div class="big-icon">\u{1F389}</div><div class="msg">\u6CA1\u6709\u53EF\u6D4B\u8BD5\u7684\u8BCD\u6C47</div><div><button class="quiz-btn-big qb-next" onclick="showQuizMenu()">\u8FD4\u56DE</button></div></div>';return;}
+  showQuizCard();
+}
+
+function showQuizCard() {
+  if(quizIdx>=quizWords.length){showQuizSummary();return;}
+  const w=quizWords[quizIdx], s=getQuizState(w.en);
+  const isReverse=quizMode==="en2cn", showSide=isReverse?w.cn:w.en;
+  const poolA=getAllWords().filter(w2=>getQuizState(w2.en).pool==="a").length;
+  const poolB=getAllWords().filter(w2=>getQuizState(w2.en).pool==="b").length;
+  document.getElementById("qPoolA").textContent=poolA; document.getElementById("qPoolB").textContent=poolB;
+  document.getElementById("quizContent").innerHTML=`
+    <div class="quiz-card"><div class="cat-label">${w.catEmoji} ${w.catTitle} \u00B7 ${quizIdx+1}/${quizWords.length}</div>
+      <div class="question">${showSide}</div><div class="ctx">${w.ctx}</div>
+      <div class="answer-area" id="answerArea"><div style="color:#475569;font-size:13px;">\u60F3\u4E00\u60F3\u8FD9\u4E2A\u8BCD\u7684\u610F\u601D...</div></div>
+      <div class="quiz-btns" id="quizBtns"><button class="quiz-btn-big qb-show" onclick="revealAnswer()">\u{1F4A1} \u663E\u793A\u7B54\u6848 (Space)</button></div>
+      <div class="streak-info">\u8FDE\u7EED\u6B63\u786E: ${s.streak}/${STREAK_THRESHOLD} ${s.pool==='b'?'\u2705 \u5DF2\u638C\u63E1':''}</div>
+      <div class="quiz-progress"><div class="quiz-progress-bar" style="width:${(quizIdx/quizWords.length)*100}%"></div></div></div>`;
+}
+
+function revealAnswer() {
+  const w=quizWords[quizIdx], isReverse=quizMode==="en2cn", hideSide=isReverse?w.en:w.cn;
+  document.getElementById("answerArea").innerHTML='<div class="answer-text">'+hideSide+'</div>';
+  document.getElementById("quizBtns").innerHTML=`
+    <button class="quiz-btn-big qb-yes" onclick="quizAnswer(true)">\u2705 \u8BB0\u5F97 (Enter)</button>
+    <button class="quiz-btn-big qb-no" onclick="quizAnswer(false)">\u274C \u4E0D\u8BB0\u5F97 (X)</button>
+    <button class="quiz-btn-big qb-next" onclick="quizSkip()">\u23ED \u8DF3\u8FC7</button>`;
+}
+
+function quizAnswer(correct) {
+  const w=quizWords[quizIdx], k=wordKey(w.en), s=getQuizState(w.en);
+  quizAnswered++;
+  if(correct){quizCorrect++;s.streak++;if(s.streak>=STREAK_THRESHOLD)s.pool="b";}
+  else{s.streak=0;s.pool="a";}
+  s.lastReview=Date.now(); QUIZ[k]=s; saveQuiz(QUIZ);
+  const card=document.querySelector(".quiz-card");
+  card.style.borderColor=correct?"#22c55e":"#ef4444";
+  setTimeout(()=>{quizIdx++;showQuizCard();},400);
+}
+function quizSkip(){quizIdx++;showQuizCard();}
+
+function showQuizSummary() {
+  const pct=quizAnswered?Math.round(quizCorrect/quizAnswered*100):0;
+  const poolA=getAllWords().filter(w=>getQuizState(w.en).pool==="a").length;
+  const poolB=getAllWords().filter(w=>getQuizState(w.en).pool==="b").length;
+  document.getElementById("qPoolA").textContent=poolA; document.getElementById("qPoolB").textContent=poolB;
+  let emoji=pct>=80?"\u{1F389}":pct>=50?"\u{1F4AA}":"\u{1F9D0}";
+  let msg=pct>=80?"\u592A\u68D2\u4E86\uFF01":pct>=50?"\u7EE7\u7EED\u52AA\u529B\uFF01":"\u522B\u6C14\u998A\uFF0C\u591A\u7EC3\u51E0\u6B21\uFF01";
+  document.getElementById("quizContent").innerHTML=`
+    <div class="quiz-summary"><div class="big-icon">${emoji}</div><div class="msg">${msg}</div>
+      <div class="detail">\u672C\u8F6E: ${quizAnswered} \u8BCD \u00B7 \u6B63\u786E ${quizCorrect} \u00B7 ${pct}%<br>
+        <span class="pool-tag pool-a" style="display:inline-block;margin-top:8px;">\u672A\u638C\u63E1 ${poolA}</span>
+        <span class="pool-tag pool-b" style="display:inline-block;margin-top:8px;">\u5DF2\u638C\u63E1 ${poolB}</span></div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="quiz-btn-big qb-show" onclick="showQuizMenu()">\u518D\u6765\u4E00\u8F6E</button>
+        <button class="quiz-btn-big qb-next" onclick="closeQuiz()">\u8FD4\u56DE\u8BCD\u5E93</button></div></div>`;
+  debouncedPush("测验进度"); // sync quiz progress
+}
+
+// ==================== KEYBOARD ====================
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if(document.getElementById("quizOverlay").classList.contains("show")){closeQuiz();}else{closeAllModals();} return; }
+  if (document.getElementById("quizOverlay").classList.contains("show")) {
+    if (e.code === "Space") { e.preventDefault(); const b=document.querySelector(".qb-show"); if(b) b.click(); }
+    if (e.key === "Enter") { e.preventDefault(); const b=document.querySelector(".qb-yes"); if(b) b.click(); }
+    if (e.key === "x" || e.key === "X") { const b=document.querySelector(".qb-no"); if(b){e.preventDefault();b.click();} }
+    return;
+  }
+  if ((e.ctrlKey||e.metaKey) && e.key === "k") { e.preventDefault(); document.getElementById("searchInput").focus(); }
+  if ((e.ctrlKey||e.metaKey) && e.key === "n") { e.preventDefault(); openAddWord(); }
+});
+
+// ==================== SEARCH ====================
+let searchTimer;
+document.getElementById("searchInput").addEventListener("input", function(){ clearTimeout(searchTimer); searchTimer = setTimeout(()=>render(this.value.trim()),150); });
+
+// ==================== INIT ====================
+(async function init() {
+  renderNavTabs("vocab");
+  setupModalOverlayClose();
+  SERVER_MODE = await detectServer();
+
+  if (SERVER_MODE) {
+    const serverData = await loadDataServer();
+    const serverQuiz = await loadQuizServer();
+    if (serverData && serverData.length) { DATA = serverData; saveDataLocal(DATA); }
+    else { await saveDataServer(DATA); }
+    if (serverQuiz && Object.keys(serverQuiz).length) { QUIZ = serverQuiz; saveQuizLocal(QUIZ); }
+    else { await saveQuizServer(QUIZ); }
+  }
+
+  render();
+  await initSync();
+})();
+</script>
+</body>
+</html>

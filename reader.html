@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1776464681">
-<link rel="stylesheet" href="shared/reader.css?v=1776464681">
+<link rel="stylesheet" href="shared/theme.css?v=1776466122">
+<link rel="stylesheet" href="shared/reader.css?v=1776466122">
 </head>
 <body>
 
@@ -136,13 +136,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1776464681"></script>
-<script src="shared/sync.js?v=1776464681"></script>
-<script src="shared/pdf-viewer.js?v=1776464681"></script>
-<script src="shared/notes-panel.js?v=1776464681"></script>
-<script src="shared/folder-manager.js?v=1776464681"></script>
-<script src="shared/panel-manager.js?v=1776464681"></script>
-<script src="shared/close-reading.js?v=1776464681"></script>
+<script src="shared/utils.js?v=1776466122"></script>
+<script src="shared/sync.js?v=1776466122"></script>
+<script src="shared/pdf-viewer.js?v=1776466122"></script>
+<script src="shared/notes-panel.js?v=1776466122"></script>
+<script src="shared/folder-manager.js?v=1776466122"></script>
+<script src="shared/panel-manager.js?v=1776466122"></script>
+<script src="shared/close-reading.js?v=1776466122"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -935,8 +935,12 @@ function _getFirstAuthorSurname(authorStr) {
 // Returns [prefixLabel, [[value,displayLabel],...]] for right-side filter dropdown, or null if no filter applies
 function _getFilterOptions(sortBy) {
   if (sortBy === "year") {
-    var years = Array.from(new Set(PAPERS.map(p => p.year).filter(Boolean))).sort((a,b) => b - a);
-    return ["年份", years.map(y => [String(y), String(y)])];
+    var allYears = PAPERS.map(p => p.year).filter(Boolean);
+    var modernYears = Array.from(new Set(allYears.filter(y => y >= 2000))).sort((a,b) => b - a);
+    var hasOldPapers = allYears.some(y => y < 2000);
+    var opts = modernYears.map(y => [String(y), String(y)]);
+    if (hasOldPapers) opts.push(["pre2000", "2000年前"]);
+    return ["年份", opts];
   }
   if (sortBy === "author") {
     var authors = Array.from(new Set(PAPERS.map(p => _getFirstAuthorSurname(p.authors)).filter(Boolean))).sort((a,b) => a.localeCompare(b));
@@ -955,7 +959,10 @@ function _getFilterOptions(sortBy) {
 
 function _paperMatchesFilter(p, sortBy, value) {
   if (!value) return true;
-  if (sortBy === "year") return String(p.year || "") === value;
+  if (sortBy === "year") {
+    if (value === "pre2000") return p.year && p.year < 2000;
+    return String(p.year || "") === value;
+  }
   if (sortBy === "author") return _getFirstAuthorSurname(p.authors) === value;
   if (sortBy === "journal") return (p.journal || "").trim() === value;
   if (sortBy === "level") return p.readingLevel === value;
@@ -1013,6 +1020,27 @@ function _clearFilterTags() {
   renderPaperList(); renderSortFilterBar();
 }
 
+// Remove a category tag from every paper in the library (global delete).
+// Fires on ✕ click inside each tag chip in the sort/filter bar.
+async function _deleteTagGlobally(tag) {
+  var affected = PAPERS.filter(p => (p.categoryTags||[]).includes(tag));
+  if (!affected.length) { showToast("⚠ 无论文包含此标签"); return; }
+  if (!confirm('确定删除标签 "#' + tag + '" 吗？\n\n将从 ' + affected.length + ' 篇论文中移除此标签（论文本身保留）。')) return;
+  var now = Date.now();
+  affected.forEach(p => {
+    p.categoryTags = (p.categoryTags||[]).filter(t => t !== tag);
+    p.updatedAt = now;
+  });
+  // Also clear it from the currently-active filter selection if present
+  _currentFilterTags = _currentFilterTags.filter(t => t !== tag);
+  savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+  renderSortFilterBar(); renderPaperList();
+  if (typeof currentPaperId !== "undefined" && currentPaperId) renderPaperDetail(currentPaperId);
+  showToast("🗑 已从 " + affected.length + " 篇论文中删除 #" + tag);
+  if (typeof flushPush === "function") { try { await flushPush("删除标签 #" + tag); } catch(e) { console.warn("push failed", e); } }
+  else debouncedPush("删除标签 #" + tag);
+}
+
 function renderSortFilterBar() {
   var el = document.getElementById("sortFilterBar");
   if (!el) return;
@@ -1023,7 +1051,10 @@ function renderSortFilterBar() {
     html += '<div class="sf-tags">';
     allTags.forEach(([tag, count]) => {
       var isActive = _currentFilterTags.includes(tag);
-      html += '<span class="sf-tag-chip'+(isActive?' active':'')+'" onclick="_toggleFilterTag(\''+esc(tag).replace(/'/g,"\\'")+'\')">#'+esc(tag)+' <small>'+count+'</small></span>';
+      var safeTag = esc(tag).replace(/'/g,"\\'");
+      html += '<span class="sf-tag-chip'+(isActive?' active':'')+'" onclick="_toggleFilterTag(\''+safeTag+'\')">#'+esc(tag)+' <small>'+count+'</small>'
+           +   '<span class="sf-tag-del" onclick="event.stopPropagation();_deleteTagGlobally(\''+safeTag+'\')" title="删除此标签（从所有论文中移除）">✕</span>'
+           + '</span>';
     });
     if (_currentFilterTags.length) {
       html += '<span class="sf-tag-clear" onclick="_clearFilterTags()">✕ 清除</span>';

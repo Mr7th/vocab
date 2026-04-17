@@ -432,6 +432,9 @@ body { height: 100vh; overflow: hidden; }
 .sf-tag-chip:hover { border-color: #a78bfa; background: #2e1065; }
 .sf-tag-chip.active { background: #5b21b6; border-color: #7c3aed; color: #f5f3ff; font-weight: 600; }
 .sf-tag-chip small { font-size: 10px; opacity: 0.6; margin-left: 2px; }
+.sf-tag-del { display: none; margin-left: 4px; padding: 0 3px; font-size: 10px; color: #fca5a5; opacity: 0.7; border-radius: 3px; }
+.sf-tag-chip:hover .sf-tag-del { display: inline; }
+.sf-tag-del:hover { opacity: 1; background: #7f1d1d; color: #fee2e2; }
 .sf-tag-clear { font-size: 11px; color: #ef4444; cursor: pointer; padding: 3px 8px; border-radius: 6px; border: 1px solid #7f1d1d; background: #1c0a0a; transition: all 0.15s; }
 .sf-tag-clear:hover { background: #7f1d1d; color: #fca5a5; }
 .sf-controls { display: flex; gap: 6px; padding: 4px 12px; }

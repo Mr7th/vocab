@@ -48,11 +48,19 @@ function closeAllModals() {
   document.querySelectorAll(".modal-overlay").forEach(el => el.classList.remove("show"));
 }
 
-/** 初始化弹窗：点击遮罩层关闭 */
+/** 初始化弹窗：点击遮罩层关闭
+ *  只有 mousedown 和 mouseup 都落在遮罩层本身时才关闭，
+ *  防止输入框内拖选文字释放到外面时误关弹窗。 */
 function setupModalOverlayClose() {
   document.querySelectorAll(".modal-overlay").forEach(el => {
-    el.addEventListener("click", e => {
-      if (e.target === el) el.classList.remove("show");
+    var pressStartedOnOverlay = false;
+    el.addEventListener("mousedown", e => {
+      pressStartedOnOverlay = (e.target === el);
+    });
+    el.addEventListener("mouseup", e => {
+      var shouldClose = pressStartedOnOverlay && e.target === el;
+      pressStartedOnOverlay = false;
+      if (shouldClose) el.classList.remove("show");
     });
   });
 }

@@ -176,7 +176,15 @@
     overlay.innerHTML = html;
     document.body.appendChild(overlay);
 
-    overlay.addEventListener("click", (ev) => { if (ev.target === overlay) overlay.remove(); });
+    // Close on overlay click, but only if mousedown AND mouseup both landed on the overlay
+    // (prevents accidental close when dragging text selection from input out to overlay).
+    var pressStartedOnOverlay = false;
+    overlay.addEventListener("mousedown", (ev) => { pressStartedOnOverlay = (ev.target === overlay); });
+    overlay.addEventListener("mouseup", (ev) => {
+      var shouldClose = pressStartedOnOverlay && ev.target === overlay;
+      pressStartedOnOverlay = false;
+      if (shouldClose) overlay.remove();
+    });
     document.getElementById("fmCancel").addEventListener("click", () => overlay.remove());
 
     if (mode === "create") {

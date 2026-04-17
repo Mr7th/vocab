@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1776446927">
-<link rel="stylesheet" href="shared/reader.css?v=1776446927">
+<link rel="stylesheet" href="shared/theme.css?v=1776464266">
+<link rel="stylesheet" href="shared/reader.css?v=1776464266">
 </head>
 <body>
 
@@ -136,13 +136,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1776446927"></script>
-<script src="shared/sync.js?v=1776446927"></script>
-<script src="shared/pdf-viewer.js?v=1776446927"></script>
-<script src="shared/notes-panel.js?v=1776446927"></script>
-<script src="shared/folder-manager.js?v=1776446927"></script>
-<script src="shared/panel-manager.js?v=1776446927"></script>
-<script src="shared/close-reading.js?v=1776446927"></script>
+<script src="shared/utils.js?v=1776464266"></script>
+<script src="shared/sync.js?v=1776464266"></script>
+<script src="shared/pdf-viewer.js?v=1776464266"></script>
+<script src="shared/notes-panel.js?v=1776464266"></script>
+<script src="shared/folder-manager.js?v=1776464266"></script>
+<script src="shared/panel-manager.js?v=1776464266"></script>
+<script src="shared/close-reading.js?v=1776464266"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -157,7 +157,7 @@ const DEFAULT_PAPERS = [
     id: "paper_wang_2022_jfm", title: "The Controlled Impact of Elastic Plates on a Quiescent Water Surface",
     authors: "An Wang, Kit Pan Wong, Miao Yu, Kenneth T. Kiger, James H. Duncan", year: 2022,
     journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2022.154",
-    tags: ["FSI","elastic plate","water impact","slamming","hydroelasticity"], pdfUrl: "papers/01_wang_2022_jfm.pdf",
+    tags: ["FSI","elastic plate","water impact","slamming","hydroelasticity"], pdfUrl: "",
     summary: "实验研究了三块不同厚度的矩形铝板以恒定速度斜向入水。核心发现：刚度比 R_D 是控制弹性效应的主要参数。R_D<1.0 为准静态响应，R_D>1.0 出现强双向流固耦合，存在减载（中段）和增载（末段）两种机制。",
     sections: [
       { icon: "🔬", title: "实验方法", content: "**水槽**：13.41m x 2.45m 透明拖曳水槽\n**驱动**：液压伺服电机（44kW）恒速控制\n**测力**：四个Kistler 9367C传感器，采样率40.96kHz\n**板**：铝合金6061-T651，L=1080mm，三种厚度\n**参数矩阵**：5档速度 x 6个速度比 x 3块板 = 72种工况" },
@@ -169,7 +169,7 @@ const DEFAULT_PAPERS = [
     id: "paper_lee_2024_snh", title: "The Natural Response of Uniform and Nonuniform Plates in Air and Partially Submerged in Water",
     authors: "S. Lee, E. Fishman, R. Pellegrini, A. Wang, K. T. Kiger, M. Yu, J. H. Duncan, F. Stern, M. Diez", year: 2024,
     journal: "35th Symposium on Naval Hydrodynamics", doi: "",
-    tags: ["vibration","added mass","DIC","natural frequency","half-wet"], pdfUrl: "papers/02_lee_2024_snh.pdf",
+    tags: ["vibration","added mass","DIC","natural frequency","half-wet"], pdfUrl: "",
     summary: "Wang et al. (2022) 的后续工作，研究3块板在干态/半湿态的固有振动。使用全场DIC系统替代5点离散测量。核心发现：一阶频率半湿态降至干态1/3（附加质量比M1约6.7），低频模态受水影响远大于高频模态。",
     sections: [
       { icon: "🔗", title: "与JFM论文的关系", content: "理解砰击过程中流固耦合的\"零阶近似\"\n**升级**：5点→全场DIC（~8000点），1块→3块板，pinned→pinned+clamped" },
@@ -181,7 +181,7 @@ const DEFAULT_PAPERS = [
     id: "paper_solav_2022_joss", title: "DuoDIC: 3D Digital Image Correlation in MATLAB",
     authors: "Dana Solav, Asaf Silverstein", year: 2022,
     journal: "Journal of Open Source Software", doi: "https://doi.org/10.21105/joss.04279",
-    tags: ["DIC","MATLAB","3D measurement","open source","strain"], pdfUrl: "papers/03_solav_2022_joss.pdf",
+    tags: ["DIC","MATLAB","3D measurement","open source","strain"], pdfUrl: "",
     summary: "开源MATLAB工具箱，用于双相机立体3D-DIC测量。验证精度：位移误差约1.3μm，应变误差约3.4×10⁻⁴。你获取实验数据的核心测量工具。",
     sections: [
       { icon: "🔧", title: "工作流程", content: "Step 1 立体标定 → Step 2 2D-DIC互相关(Ncorr) → Step 3 3D重建 → Step 4 后处理(应变)" },
@@ -192,7 +192,7 @@ const DEFAULT_PAPERS = [
     id: "paper_joshi_2022_jfm", title: "The unsteady force response of an accelerating flat plate with controlled spanwise bending",
     authors: "Kamlesh Joshi, Samik Bhattacharya", year: 2022,
     journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2021.1110",
-    tags: ["unsteady force","spanwise bending","added mass","vortex dynamics","PIV"], pdfUrl: "papers/04_joshi_2022_jfm.pdf",
+    tags: ["unsteady force","spanwise bending","added mass","vortex dynamics","PIV"], pdfUrl: "",
     summary: "主动可控展向弯曲对非定常力的影响。bend-down增载~15%，bend-up减载~22%。弯曲通过改变局部相对速度影响剪切层供涡速率。导师推荐此文。",
     sections: [
       { icon: "🧪", title: "实验设计", content: "拖曳水池，Re=18000，主动执行器驱动弯曲\n控制参数：加速数Ac，弯曲持续时间t_b\n测量：六分量力天平 + PIV" },
@@ -284,7 +284,7 @@ const DEFAULT_PAPERS = [
     id: "paper_reinhard_2013_jfm", title: "Water Entry of a Flat Elastic Plate at High Horizontal Speed",
     authors: "Moritz Reinhard, Alexander A. Korobkin, Mark J. Cooker", year: 2013,
     journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2013.155",
-    tags: ["elastic plate","water entry","horizontal speed","hydroelasticity","JFM"], pdfUrl: "papers/06_reinhard_2013_jfm.pdf",
+    tags: ["elastic plate","water entry","horizontal speed","hydroelasticity","JFM"], pdfUrl: "",
     summary: "二维弹性平板以高水平速度斜向入水的理论分析。水平速度分量远大于垂直速度——这与你的实验设置（恒速斜向入水）非常接近。是连接 Korobkin 理论和 Wang et al. (2022 JFM) 实验的关键理论工作。",
     sections: [
       { icon: "📊", title: "核心方法", content: "高速水平入水的 Wagner 理论 + 弹性板 Euler-Bernoulli 模型\n渐近分析方法处理流固耦合\n预测板的变形模态和冲击力时间历程" },
@@ -343,7 +343,7 @@ const DEFAULT_PAPERS = [
     id: "paper_turkoz_2025_jfm", title: "A Modelling Framework for Jet Penetration into Soft Gels",
     authors: "S. M. Mousavi, A. Hassanzadeh, F. Larachi, C.-D. Ohl, S. A. Taghavi", year: 2025,
     journal: "Journal of Fluid Mechanics", doi: "https://doi.org/10.1017/jfm.2025.352",
-    tags: ["jet penetration","soft gel","needle-free injection","PIV","viscoplastic"], pdfUrl: "papers/07_mousavi_2025_jfm.pdf",
+    tags: ["jet penetration","soft gel","needle-free injection","PIV","viscoplastic"], pdfUrl: "",
     summary: "JFM 最新论文（2025），建立了射流穿透软凝胶的建模框架。使用相机成像和层析 PIV 可视化牛顿流体射入软粘塑性凝胶的过程。为优化生物医学和软体机器人中的流体递送提供了力学基础。",
     sections: [
       { icon: "🔬", title: "研究方法", content: "相机成像 + 层析 PIV（时间分辨）\n射流：牛顿流体\n目标：软粘塑性凝胶（模拟生物组织）\n建模：理论框架预测穿透深度" },

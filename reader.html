@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1776464266">
-<link rel="stylesheet" href="shared/reader.css?v=1776464266">
+<link rel="stylesheet" href="shared/theme.css?v=1776464681">
+<link rel="stylesheet" href="shared/reader.css?v=1776464681">
 </head>
 <body>
 
@@ -136,13 +136,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1776464266"></script>
-<script src="shared/sync.js?v=1776464266"></script>
-<script src="shared/pdf-viewer.js?v=1776464266"></script>
-<script src="shared/notes-panel.js?v=1776464266"></script>
-<script src="shared/folder-manager.js?v=1776464266"></script>
-<script src="shared/panel-manager.js?v=1776464266"></script>
-<script src="shared/close-reading.js?v=1776464266"></script>
+<script src="shared/utils.js?v=1776464681"></script>
+<script src="shared/sync.js?v=1776464681"></script>
+<script src="shared/pdf-viewer.js?v=1776464681"></script>
+<script src="shared/notes-panel.js?v=1776464681"></script>
+<script src="shared/folder-manager.js?v=1776464681"></script>
+<script src="shared/panel-manager.js?v=1776464681"></script>
+<script src="shared/close-reading.js?v=1776464681"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -893,7 +893,7 @@ function inlineEdit(paperId, field, el) {
 
 var _currentSort = "manual"; // manual|year|author|journal|level|title
 var _currentFilterTags = []; // array of selected tags (AND/intersection logic)
-var _currentFilterLevel = null; // null|skim|careful|deep
+var _currentFilterValue = null; // dynamic: matches _currentSort — year=YYYY / author=Surname / journal=name / level=skim|careful|deep
 
 function _getReadingLevelBadge(level) {
   if (level === "deep") return '<span class="rl-badge rl-deep">精读</span>';
@@ -924,6 +924,51 @@ function _getAllCategoryTags() {
   return Object.entries(tags).sort((a,b) => b[1] - a[1]);
 }
 
+// Extract surname of first author for grouping (e.g., "An Wang, Kit Pan Wong" → "Wang")
+function _getFirstAuthorSurname(authorStr) {
+  if (!authorStr) return "";
+  var first = String(authorStr).split(/[,&]| and /)[0].trim();
+  var parts = first.split(/\s+/);
+  return parts[parts.length - 1] || first;
+}
+
+// Returns [prefixLabel, [[value,displayLabel],...]] for right-side filter dropdown, or null if no filter applies
+function _getFilterOptions(sortBy) {
+  if (sortBy === "year") {
+    var years = Array.from(new Set(PAPERS.map(p => p.year).filter(Boolean))).sort((a,b) => b - a);
+    return ["年份", years.map(y => [String(y), String(y)])];
+  }
+  if (sortBy === "author") {
+    var authors = Array.from(new Set(PAPERS.map(p => _getFirstAuthorSurname(p.authors)).filter(Boolean))).sort((a,b) => a.localeCompare(b));
+    return ["作者", authors.map(a => [a, a])];
+  }
+  if (sortBy === "journal") {
+    var journals = Array.from(new Set(PAPERS.map(p => (p.journal||"").trim()).filter(Boolean))).sort((a,b) => a.localeCompare(b));
+    return ["期刊", journals.map(j => [j, j])];
+  }
+  if (sortBy === "level") {
+    return ["等级", [["deep","精读"],["careful","细读"],["skim","粗读"]]];
+  }
+  // manual, title: no secondary filter
+  return null;
+}
+
+function _paperMatchesFilter(p, sortBy, value) {
+  if (!value) return true;
+  if (sortBy === "year") return String(p.year || "") === value;
+  if (sortBy === "author") return _getFirstAuthorSurname(p.authors) === value;
+  if (sortBy === "journal") return (p.journal || "").trim() === value;
+  if (sortBy === "level") return p.readingLevel === value;
+  return true;
+}
+
+function _onSortChange(v) {
+  _currentSort = v;
+  _currentFilterValue = null; // reset secondary filter whenever sort dimension changes
+  renderSortFilterBar(); // rebuild the right dropdown for the new dimension
+  renderPaperList();
+}
+
 function renderPaperList() {
   const list = document.getElementById("paperList");
   const query = (document.getElementById("searchInput").value || "").trim().toLowerCase();
@@ -936,12 +981,12 @@ function renderPaperList() {
   );
   // Filter by category tags (AND/intersection: paper must have ALL selected tags)
   if (_currentFilterTags.length) filtered = filtered.filter(p => _currentFilterTags.every(t => (p.categoryTags||[]).includes(t)));
-  // Filter by reading level
-  if (_currentFilterLevel) filtered = filtered.filter(p => p.readingLevel === _currentFilterLevel);
+  // Secondary filter tied to the current sort dimension (year/author/journal/level)
+  if (_currentFilterValue) filtered = filtered.filter(p => _paperMatchesFilter(p, _currentSort, _currentFilterValue));
   // Sort
   filtered = _sortPapers(filtered, _currentSort);
 
-  if (!filtered.length) { list.innerHTML = '<div style="padding:20px 14px;text-align:center;color:#475569;font-size:13px">'+(query||_currentFilterTags.length||_currentFilterLevel?'🔍 无匹配':'暂无论文')+'</div>'; return; }
+  if (!filtered.length) { list.innerHTML = '<div style="padding:20px 14px;text-align:center;color:#475569;font-size:13px">'+(query||_currentFilterTags.length||_currentFilterValue?'🔍 无匹配':'暂无论文')+'</div>'; return; }
   list.innerHTML = filtered.map(p => {
     const active = p.id === currentPaperId;
     const catTags = (p.categoryTags||[]).slice(0,2).map(t => '<span class="cat-tag">#'+esc(t)+'</span>').join("");
@@ -985,19 +1030,25 @@ function renderSortFilterBar() {
     }
     html += '</div>';
   }
-  // Sort + Level in one row
+  // Sort + dynamic secondary filter in one row
   html += '<div class="sf-controls">';
-  html += '<select onchange="_currentSort=this.value;renderPaperList()">';
+  html += '<select onchange="_onSortChange(this.value)">';
   [["manual","排序: 手动"],["year","排序: 年份↓"],["author","排序: 作者"],["journal","排序: 期刊"],["title","排序: 标题"],["level","排序: 阅读等级"]].forEach(([v,l]) => {
     html += '<option value="'+v+'"'+(_currentSort===v?' selected':'')+'>'+l+'</option>';
   });
   html += '</select>';
-  html += '<select onchange="_currentFilterLevel=this.value||null;renderPaperList()">';
-  html += '<option value="">等级: 全部</option>';
-  [["deep","精读"],["careful","细读"],["skim","粗读"]].forEach(([v,l]) => {
-    html += '<option value="'+v+'"'+(_currentFilterLevel===v?' selected':'')+'>'+l+'</option>';
-  });
-  html += '</select>';
+  // Right dropdown mirrors the sort dimension (year/author/journal/level); hidden for manual/title
+  var filterDef = _getFilterOptions(_currentSort);
+  if (filterDef) {
+    var prefix = filterDef[0];
+    var opts = filterDef[1];
+    html += '<select onchange="_currentFilterValue=this.value||null;renderPaperList()">';
+    html += '<option value="">'+prefix+': 全部</option>';
+    opts.forEach(([v,l]) => {
+      html += '<option value="'+esc(v)+'"'+(_currentFilterValue===v?' selected':'')+'>'+prefix+': '+esc(l)+'</option>';
+    });
+    html += '</select>';
+  }
   html += '</div>';
   el.innerHTML = html;
 }

@@ -491,3 +491,27 @@ body.dragging-category-tag #mainContent.tag-drop-target::after {
 @media (max-width: 768px) {
   #paperSidebar { height: min(45vh, 420px); max-height: 420px; }
 }
+/* Compact category browser with a separate search and pin action. */
+.tag-browser-controls { padding: 4px 12px 0; }
+.tag-browser-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #a78bfa; font-size: 12px; }
+.tag-expand { background: none; border: 0; color: #94a3b8; cursor: pointer; font-size: 11px; padding: 3px 0; }
+.tag-search { box-sizing: border-box; width: 100%; margin: 5px 0 2px; padding: 5px 8px; border: 1px solid #334155; border-radius: 5px; background: #0f172a; color: #e2e8f0; font-size: 11px; }
+.tag-search:focus { outline: 1px solid #a78bfa; }
+.sf-tag-chip[hidden], .tag-search-empty[hidden] { display: none !important; }
+.sf-tag-pin { display: inline-block; width: 14px; padding: 0; margin-right: 4px; border: 0; background: none; color: #64748b; cursor: pointer; font: inherit; }
+.sf-tag-pin:hover, .tag-pinned .sf-tag-pin { color: #fbbf24; }
+.sf-tag-chip .sf-tag-del { margin-left: 2px; }
+.tag-search-empty { padding: 4px 12px; color: #64748b; font-size: 11px; }
+/* Focus is a CSS-only view: existing panels, drafts and saved widths stay intact. */
+.reader-focus #mainContent > .detail-columns,
+.reader-focus #mainContent > .sections-area,
+.reader-focus #mainContent .paper-header > :not(h2),
+.reader-focus #panelLayout > .panel:not([data-panel-id="pdf"]),
+.reader-focus #panelLayout > .panel-resize-handle,
+.reader-focus #panelLayout > .panel[data-panel-id="pdf"] > .panel-header { display: none !important; }
+.reader-focus #panelLayout > .panel[data-panel-id="pdf"] { flex: 1 1 0 !important; min-width: 0 !important; }
+.reader-focus #panelLayout > .panel[data-panel-id="pdf"] > .panel-content { display: flex !important; }
+.reader-focus #mainContent .paper-header { padding-bottom: 8px; }
+.reader-focus #mainContent .paper-header h2 { font-size: 15px; }
+.pdf-toolbar { flex-shrink: 0; }
+.pdf-toolbar .reader-focus-toggle { white-space: nowrap; font-size: 11px; padding: 3px 5px; }

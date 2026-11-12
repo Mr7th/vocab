@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1794508962">
-<link rel="stylesheet" href="shared/reader.css?v=1794509215">
+<link rel="stylesheet" href="shared/theme.css?v=1794510294">
+<link rel="stylesheet" href="shared/reader.css?v=1794510294">
 </head>
 <body>
 
@@ -137,13 +137,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1794508962"></script>
-<script src="shared/sync.js?v=1794508962"></script>
-<script src="shared/pdf-viewer.js?v=1794508962"></script>
-<script src="shared/notes-panel.js?v=1794508962"></script>
-<script src="shared/folder-manager.js?v=1794508962"></script>
-<script src="shared/panel-manager.js?v=1794508962"></script>
-<script src="shared/close-reading.js?v=1794508962"></script>
+<script src="shared/utils.js?v=1794510294"></script>
+<script src="shared/sync.js?v=1794510294"></script>
+<script src="shared/pdf-viewer.js?v=1794510294"></script>
+<script src="shared/notes-panel.js?v=1794510294"></script>
+<script src="shared/folder-manager.js?v=1794510294"></script>
+<script src="shared/panel-manager.js?v=1794510294"></script>
+<script src="shared/close-reading.js?v=1794510294"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -1283,6 +1283,7 @@ function renderPaperDetail(id) {
       contentEl.innerHTML = pdfHtml;
 
       PdfViewer.init(contentEl, document.getElementById("pdfPages"), {
+        paperId: p.id,
         onTextSelect: (text, pageNum, rects, yPos, mx, my) => {
           NotesPanel.showContextMenu(mx, my, text, pageNum, rects, yPos);
         },
@@ -1348,19 +1349,22 @@ function renderPaperDetail(id) {
 }
 
 async function loadPaperPdf(paper) {
+  const viewElement = document.getElementById("pdfPages");
+  const isCurrent = () => currentPaperId === paper.id && document.getElementById("pdfPages") === viewElement;
   try {
-    // Always clear previous PDF before loading a new one
-    PdfViewer.destroy();
+    // PdfViewer.init already saved and cleared the previous paper; keep its new scroll/selection listeners.
 
     // hasPdf (IndexedDB blob) takes priority over pdfUrl —
     // user-uploaded blobs are more reliable than URL references
     var loaded = false;
     if (paper.hasPdf) {
       var blob = await loadPdfBlob(paper.id);
+      if (!isCurrent()) return;
       if (!blob) {
         // Local blob missing — try downloading from Gist
         _showPdfLoading(paper);
         blob = await downloadPdfFromGist(paper.id);
+        if (!isCurrent()) return;
       }
       if (blob) {
         await PdfViewer.loadFromBlob(blob);
@@ -1376,7 +1380,7 @@ async function loadPaperPdf(paper) {
       loaded = true;
     }
 
-    if (!loaded) return;
+    if (!loaded || !isCurrent()) return;
 
     // Render existing highlights
     const hls = (paper.notes||[]).filter(n => n.highlightRects).map(n => ({
@@ -1948,7 +1952,8 @@ async function migratePdfsToNewScheme() {
   setTimeout(migratePdfsToNewScheme, 3000);
 })();
 </script>
-<script src="shared/reader-controls.js?v=1794508962"></script>
-<script src="shared/reader-tag-drag.js?v=1794508962"></script>
+<script src="shared/reader-controls.js?v=1794510294"></script>
+<script src="shared/reader-tag-drag.js?v=1794510294"></script>
+<script src="shared/reader-experience.js?v=1794510294"></script>
 </body>
 </html>

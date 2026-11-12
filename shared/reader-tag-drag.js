@@ -26,7 +26,7 @@
   document.addEventListener("dragstart", e => {
     const chip = e.target.closest && e.target.closest(".sf-tag-chip[data-drag-tag]");
     if (!chip) return;
-    if (e.target.closest(".sf-tag-del")) { e.preventDefault(); return; }
+    if (e.target.closest(".sf-tag-del, .sf-tag-pin")) { e.preventDefault(); return; }
     activeTag = decodeURIComponent(chip.dataset.dragTag);
     source = chip;
     e.dataTransfer.setData(TYPE, activeTag);

@@ -14,6 +14,37 @@
   let _scrollTimer = null, _observer = null;
   let _boundScrollFn = null, _boundMouseDownFn = null, _boundMouseUpFn = null, _boundContextMenuFn = null;
   let _initDone = false;
+  let _paperId = null, _fitMode = true, _progressReady = false;
+  let _savedProgress = null, _loadVersion = 0, _layoutVersion = 0;
+  function _progressKey() { return "fsi_pdf_progress_" + encodeURIComponent(_paperId); }
+  function saveReadingProgress(info) {
+    if (!_paperId || !_doc || !_progressReady || !_container || !_container.isConnected) return;
+    const position = info || getCurrentPage();
+    try {
+      localStorage.setItem(_progressKey(), JSON.stringify({
+        pageNum: position.pageNum, yPosition: position.yPosition,
+        scale: _scale, fit: _fitMode, scrollLeft: _container.scrollLeft
+      }));
+    } catch (_) {}
+  }
+  function _readProgress() {
+    try {
+      const value = JSON.parse(localStorage.getItem(_progressKey()) || "null");
+      return value && Number.isFinite(value.scale) && value.scale >= MIN_SCALE && value.scale <= MAX_SCALE ? value : null;
+    } catch (_) { return null; }
+  }
+  function _restoreProgress() {
+    if (_savedProgress && _doc) {
+      const page = Math.max(1, Math.min(_doc.numPages, Math.floor(_savedProgress.pageNum) || 1));
+      const y = Number.isFinite(_savedProgress.yPosition) ? Math.max(0, Math.min(1, _savedProgress.yPosition)) : 0;
+      scrollToPage(page, y, "auto");
+      _container.scrollLeft = Number.isFinite(_savedProgress.scrollLeft) ? _savedProgress.scrollLeft : 0;
+    }
+    _progressReady = true;
+    _updateToolbarInfo();
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveReadingProgress(); });
+  window.addEventListener("pagehide", () => saveReadingProgress());
 
   async function _ensureLib() {
     if (window.pdfjsLib) return;
@@ -29,8 +60,12 @@
   }
 
   function init(containerEl, pagesEl, opts) {
-    // Clean up previous listeners if re-initializing
-    _removeListeners();
+    // Save the previous paper before assigning the new paper's local preferences.
+    destroy();
+    _paperId = opts.paperId || null;
+    _savedProgress = _paperId ? _readProgress() : null;
+    _scale = _savedProgress ? _savedProgress.scale : 1.2;
+    _fitMode = _savedProgress ? _savedProgress.fit === true : true;
     _container = containerEl;
     _pagesEl = pagesEl;
     _onTextSelect = opts.onTextSelect || null;
@@ -40,31 +75,34 @@
     _initDone = true;
   }
 
+  async function _loadDocument(source, version) {
+    await _ensureLib();
+    if (version !== _loadVersion) return;
+    const doc = await pdfjsLib.getDocument(source).promise;
+    if (version !== _loadVersion) { doc.destroy(); return; }
+    _doc = doc;
+    await _renderAllPlaceholders();
+    if (version !== _loadVersion) return;
+    _setupLazyObserver();
+    _restoreProgress();
+  }
   async function loadFromURL(url) {
-    await _ensureLib();
-    try {
-      _doc = await pdfjsLib.getDocument(url).promise;
-      _renderAllPlaceholders();
-      _setupLazyObserver();
-    } catch(e) { console.warn("PDF URL load failed:", e); throw e; }
+    return _loadDocument(url, ++_loadVersion);
   }
-
   async function loadFromBlob(blob) {
-    await _ensureLib();
+    const version = ++_loadVersion;
     const buf = await blob.arrayBuffer();
-    _doc = await pdfjsLib.getDocument({ data: buf }).promise;
-    _renderAllPlaceholders();
-    _setupLazyObserver();
+    if (version === _loadVersion) return _loadDocument({ data: buf }, version);
   }
-
   async function loadFromArrayBuffer(buf) {
-    await _ensureLib();
-    _doc = await pdfjsLib.getDocument({ data: buf }).promise;
-    _renderAllPlaceholders();
-    _setupLazyObserver();
+    return _loadDocument({ data: buf }, ++_loadVersion);
   }
 
   function destroy() {
+    saveReadingProgress();
+    _progressReady = false;
+    _loadVersion++;
+    clearTimeout(_scrollTimer);
     if (_observer) _observer.disconnect();
     _removeListeners();
     _pageWrappers = []; _highlights = []; _doc = null;
@@ -83,6 +121,7 @@
   // Create placeholders for all pages (correct height, lazy render content)
   function _renderAllPlaceholders() {
     if (!_doc || !_pagesEl) return;
+    const doc = _doc, scale = _scale, layoutVersion = ++_layoutVersion;
     _pagesEl.innerHTML = "";
     _pageWrappers = [];
     for (let i = 1; i <= _doc.numPages; i++) {
@@ -96,8 +135,9 @@
       _pageWrappers.push({ num: i, wrapper, canvas: null, textLayer: null, rendered: false });
     }
     // Get actual dimensions from first page
-    _doc.getPage(1).then(page => {
-      const vp = page.getViewport({ scale: _scale });
+    const dimensionsReady = doc.getPage(1).then(page => {
+      if (doc !== _doc || layoutVersion !== _layoutVersion) return;
+      const vp = page.getViewport({ scale });
       _pageWrappers.forEach(pw => {
         if (!pw.rendered) {
           pw.wrapper.style.width = vp.width + "px";
@@ -106,6 +146,7 @@
       });
     });
     _updateToolbarInfo();
+    return dimensionsReady;
   }
 
   function _setupLazyObserver() {
@@ -126,8 +167,10 @@
     if (pw.rendered || pw._rendering || !_doc) return;
     pw._rendering = true;
     try {
-    const page = await _doc.getPage(pw.num);
-    const vp = page.getViewport({ scale: _scale });
+    const doc = _doc, scale = _scale;
+    const page = await doc.getPage(pw.num);
+    if (doc !== _doc || scale !== _scale || !_pageWrappers.includes(pw)) return;
+    const vp = page.getViewport({ scale });
     const dpr = window.devicePixelRatio || 1;
 
     pw.wrapper.classList.remove("pdf-page-placeholder");
@@ -176,22 +219,25 @@
   }
 
   async function _reRenderAll() {
-    // Save scroll position
+    if (!_doc || !_pagesEl) return;
+    const doc = _doc, version = _loadVersion;
     const scrollInfo = getCurrentPage();
-    // Clear and re-render
-    _pageWrappers.forEach(pw => { pw.rendered = false; });
-    _renderAllPlaceholders();
+    _progressReady = false;
+    const rendered = _renderAllPlaceholders(), layoutVersion = _layoutVersion;
+    await rendered;
+    if (_doc !== doc || version !== _loadVersion || layoutVersion !== _layoutVersion) return;
     _setupLazyObserver();
-    // Restore scroll position
-    if (scrollInfo.pageNum > 0) {
-      await new Promise(r => setTimeout(r, 50));
-      scrollToPage(scrollInfo.pageNum, scrollInfo.yPosition);
-    }
+    scrollToPage(scrollInfo.pageNum, scrollInfo.yPosition, "auto");
+    _progressReady = true;
+    saveReadingProgress();
   }
 
-  function setScale(s) {
+  function setScale(s, fitMode) {
     if (!Number.isFinite(s)) return;
+    const position = getCurrentPage();
     _scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, s));
+    _fitMode = fitMode === true;
+    saveReadingProgress(position);
     _reRenderAll();
     _updateToolbarInfo();
   }
@@ -201,20 +247,22 @@
     if (!_container || !_doc) return;
     const containerW = _container.clientWidth - 32; // padding
     // Use standard A4 width as reference
-    _doc.getPage(1).then(page => {
+    const doc = _doc;
+    doc.getPage(1).then(page => {
+      if (doc !== _doc) return;
       const vp = page.getViewport({ scale: 1.0 });
-      setScale(containerW / vp.width);
+      setScale(containerW / vp.width, true);
     });
   }
   function getScale() { return _scale; }
   function getNumPages() { return _doc ? _doc.numPages : 0; }
 
-  function scrollToPage(pageNum, yFraction) {
+  function scrollToPage(pageNum, yFraction, behavior) {
     const pw = _pageWrappers[pageNum - 1];
     if (!pw || !_container) return;
     const y = yFraction || 0;
     const top = pw.wrapper.offsetTop + (pw.wrapper.offsetHeight * y) - _container.clientHeight / 3;
-    _container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    _container.scrollTo({ top: Math.max(0, top), behavior: behavior || "smooth" });
   }
 
   function getCurrentPage() {
@@ -263,6 +311,7 @@
       _scrollTimer = setTimeout(() => {
         const info = getCurrentPage();
         _updateToolbarInfo();
+        saveReadingProgress(info);
         if (_onPageScroll) _onPageScroll(info.pageNum, info.yPosition);
       }, 80);
     };
@@ -498,14 +547,16 @@
 
   // Called when panel resizes — re-fit PDF to new container width
   function handleResize() {
-    if (!_container || !_doc) return;
+    if (!_container || !_doc || !_fitMode) return;
     const containerW = _container.clientWidth - 32;
     if (containerW < 100) return;
-    _doc.getPage(1).then(page => {
+    const doc = _doc;
+    doc.getPage(1).then(page => {
+      if (doc !== _doc) return;
       const vp = page.getViewport({ scale: 1.0 });
       const newScale = containerW / vp.width;
       if (Math.abs(newScale - _scale) > 0.02) {
-        setScale(newScale);
+        setScale(newScale, true);
       }
     });
   }
@@ -523,6 +574,6 @@
     init, loadFromURL, loadFromBlob, loadFromArrayBuffer, destroy,
     setScale, zoomIn, zoomOut, zoomFit, getScale, getNumPages,
     scrollToPage, getCurrentPage, renderHighlights,
-    handleResize, getPageText
+    handleResize, getPageText, saveReadingProgress
   };
 })();

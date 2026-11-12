@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1794506711">
-<link rel="stylesheet" href="shared/reader.css?v=1794508024">
+<link rel="stylesheet" href="shared/theme.css?v=1794508962">
+<link rel="stylesheet" href="shared/reader.css?v=1794508962">
 </head>
 <body>
 
@@ -137,13 +137,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1794506711"></script>
-<script src="shared/sync.js?v=1794506711"></script>
-<script src="shared/pdf-viewer.js?v=1794506711"></script>
-<script src="shared/notes-panel.js?v=1794506711"></script>
-<script src="shared/folder-manager.js?v=1794506711"></script>
-<script src="shared/panel-manager.js?v=1794506711"></script>
-<script src="shared/close-reading.js?v=1794506711"></script>
+<script src="shared/utils.js?v=1794508962"></script>
+<script src="shared/sync.js?v=1794508962"></script>
+<script src="shared/pdf-viewer.js?v=1794508962"></script>
+<script src="shared/notes-panel.js?v=1794508962"></script>
+<script src="shared/folder-manager.js?v=1794508962"></script>
+<script src="shared/panel-manager.js?v=1794508962"></script>
+<script src="shared/close-reading.js?v=1794508962"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -1055,7 +1055,7 @@ function renderSortFilterBar() {
     allTags.forEach(([tag, count]) => {
       var isActive = _currentFilterTags.includes(tag);
       var safeTag = esc(tag).replace(/'/g,"\\'");
-      html += '<span class="sf-tag-chip'+(isActive?' active':'')+'" onclick="_toggleFilterTag(\''+safeTag+'\')">#'+esc(tag)+' <small>'+count+'</small>'
+      html += '<span draggable="true" data-drag-tag="'+encodeURIComponent(tag)+'" title="拖到论文标题或右侧论文区添加标签；点击筛选" class="sf-tag-chip'+(isActive?' active':'')+'" onclick="_toggleFilterTag(\''+safeTag+'\')">#'+esc(tag)+' <small>'+count+'</small>'
            +   '<span class="sf-tag-del" onclick="event.stopPropagation();_deleteTagGlobally(\''+safeTag+'\')" title="删除此标签（从所有论文中移除）">✕</span>'
            + '</span>';
     });
@@ -1948,6 +1948,7 @@ async function migratePdfsToNewScheme() {
   setTimeout(migratePdfsToNewScheme, 3000);
 })();
 </script>
-<script src="shared/reader-controls.js?v=1794506711"></script>
+<script src="shared/reader-controls.js?v=1794508962"></script>
+<script src="shared/reader-tag-drag.js?v=1794508962"></script>
 </body>
 </html>

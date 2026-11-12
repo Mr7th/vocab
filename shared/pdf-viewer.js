@@ -190,6 +190,7 @@
   }
 
   function setScale(s) {
+    if (!Number.isFinite(s)) return;
     _scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, s));
     _reRenderAll();
     _updateToolbarInfo();
@@ -487,7 +488,7 @@
 
   function _updateToolbarInfo() {
     const label = document.getElementById("pdfZoomLabel");
-    if (label) label.textContent = Math.round(_scale * 100) + "%";
+    if (label && document.activeElement !== label) label.value = Math.round(_scale * 100);
     const pageLabel = document.getElementById("pdfPageLabel");
     if (pageLabel && _doc) {
       const info = getCurrentPage();

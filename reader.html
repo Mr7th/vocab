@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1794502368">
-<link rel="stylesheet" href="shared/reader.css?v=1794502368">
+<link rel="stylesheet" href="shared/theme.css?v=1794506711">
+<link rel="stylesheet" href="shared/reader.css?v=1794506711">
 </head>
 <body>
 
@@ -41,6 +41,7 @@
     <div id="paperList"></div>
     <div class="sidebar-add" onclick="openAddPaperModal()">+ 上传新论文</div>
   </div>
+  <div id="sidebarResizeHandle" class="sidebar-resize-handle" role="separator" aria-label="调整论文列表宽度" aria-orientation="vertical" tabindex="0" title="拖动调整宽度，双击恢复默认；方向键微调"></div>
   <div class="content" id="mainContent"></div>
 </div>
 
@@ -136,13 +137,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1794502368"></script>
-<script src="shared/sync.js?v=1794502368"></script>
-<script src="shared/pdf-viewer.js?v=1794502368"></script>
-<script src="shared/notes-panel.js?v=1794502368"></script>
-<script src="shared/folder-manager.js?v=1794502368"></script>
-<script src="shared/panel-manager.js?v=1794502368"></script>
-<script src="shared/close-reading.js?v=1794502368"></script>
+<script src="shared/utils.js?v=1794506711"></script>
+<script src="shared/sync.js?v=1794506711"></script>
+<script src="shared/pdf-viewer.js?v=1794506711"></script>
+<script src="shared/notes-panel.js?v=1794506711"></script>
+<script src="shared/folder-manager.js?v=1794506711"></script>
+<script src="shared/panel-manager.js?v=1794506711"></script>
+<script src="shared/close-reading.js?v=1794506711"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -1272,7 +1273,7 @@ function renderPaperDetail(id) {
     render: function(contentEl) {
       contentEl.className = "panel-content pdf-column";
       contentEl.id = "pdfContainer";
-      let pdfHtml = '<div class="pdf-toolbar"><button onclick="PdfViewer.zoomOut()" title="缩小">🔍-</button><span class="zoom-label" id="pdfZoomLabel">120%</span><button onclick="PdfViewer.zoomIn()" title="放大">🔍+</button><button onclick="PdfViewer.zoomFit()" title="适应宽度">↔</button><span class="page-label" id="pdfPageLabel"></span></div>';
+      let pdfHtml = '<div class="pdf-toolbar"><button onclick="PdfViewer.zoomOut()" title="缩小">🔍-</button><label class="zoom-control"><input class="zoom-label" id="pdfZoomLabel" type="text" inputmode="decimal" value="120" aria-label="PDF 缩放百分比" title="输入 50–400，回车应用"><span>%</span></label><button onclick="PdfViewer.zoomIn()" title="放大">🔍+</button><button onclick="PdfViewer.zoomFit()" title="适应宽度">↔</button><span class="page-label" id="pdfPageLabel"></span></div>';
       if (hasPdf) {
         pdfHtml += '<div class="pdf-pages" id="pdfPages"></div>';
       } else {
@@ -1947,5 +1948,6 @@ async function migratePdfsToNewScheme() {
   setTimeout(migratePdfsToNewScheme, 3000);
 })();
 </script>
+<script src="shared/reader-controls.js?v=1794506711"></script>
 </body>
 </html>

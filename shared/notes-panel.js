@@ -161,6 +161,9 @@
       '<button onclick="NotesPanel._menuAction(\'note\')">📝 笔记</button>' +
       '<button onclick="NotesPanel._menuAction(\'vocab\')">📚 词库</button>' +
       '<button onclick="NotesPanel._menuAction(\'highlight\')">🖍 高亮</button>';
+    _menuEl.setAttribute("role", "toolbar");
+    _menuEl.setAttribute("aria-label", "选中文字操作");
+    _menuEl.addEventListener("mousedown", e => e.preventDefault());
     document.body.appendChild(_menuEl);
   }
 
@@ -169,8 +172,15 @@
   function showContextMenu(x, y, text, pageNum, rects, yPos) {
     if (!_menuEl || !text) return;
     _menuContext = { text, pageNum, rects, yPos };
-    _menuEl.style.left = Math.min(x, window.innerWidth - 280) + "px";
-    _menuEl.style.top = Math.min(y - 40, window.innerHeight - 50) + "px";
+    const panel = document.querySelector('[data-panel-id="pdf"]');
+    if (!panel || panel.classList.contains("minimized")) return;
+    panel.appendChild(_menuEl);
+    _menuEl.classList.add("pdf-docked-menu");
+    _menuEl.style.left = "8px";
+    const toolbar = panel.querySelector(".pdf-toolbar");
+    const header = panel.querySelector(".panel-header");
+    _menuEl.style.top = ((header ? header.offsetHeight : 0) +
+      (toolbar ? toolbar.offsetHeight : 0) + 10) + "px";
     _menuEl.classList.add("show");
   }
 

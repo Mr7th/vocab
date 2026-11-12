@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1794500905">
-<link rel="stylesheet" href="shared/reader.css?v=1794500905">
+<link rel="stylesheet" href="shared/theme.css?v=1794502368">
+<link rel="stylesheet" href="shared/reader.css?v=1794502368">
 </head>
 <body>
 
@@ -136,13 +136,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1794500905"></script>
-<script src="shared/sync.js?v=1794500905"></script>
-<script src="shared/pdf-viewer.js?v=1794500905"></script>
-<script src="shared/notes-panel.js?v=1794500905"></script>
-<script src="shared/folder-manager.js?v=1794500905"></script>
-<script src="shared/panel-manager.js?v=1794500905"></script>
-<script src="shared/close-reading.js?v=1794500905"></script>
+<script src="shared/utils.js?v=1794502368"></script>
+<script src="shared/sync.js?v=1794502368"></script>
+<script src="shared/pdf-viewer.js?v=1794502368"></script>
+<script src="shared/notes-panel.js?v=1794502368"></script>
+<script src="shared/folder-manager.js?v=1794502368"></script>
+<script src="shared/panel-manager.js?v=1794502368"></script>
+<script src="shared/close-reading.js?v=1794502368"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -397,9 +397,11 @@ async function deletePdfBlob(id) { try { const db = await openPdfDB(); db.transa
 var PDF_MAX_SIZE = 25 * 1024 * 1024; // 25MB max
 
 // ── PDF 云同步 v2 ─────────────────────────────────────
-// 架构：每个 PDF 存为独立的 PUBLIC Gist（解决私有 Gist raw_url 的 CORS 问题）
+// 架构：每个 PDF 存为独立的私密（secret）Gist。
+// 2026-11-12 实测：secret gist 的 raw_url 同样返回 Access-Control-Allow-Origin: *，
+// 从 mr7th.github.io 直接 fetch 返回 200，不需要再用 public gist。
 // paper.pdfGistId 记录该 PDF 的 Gist ID
-// 下载时通过 public raw_url 直接获取（无需认证，CORS 无障碍）
+// 下载时通过 raw_url 直接获取（secret gist 同样无需认证、允许跨域）
 
 function _blobToBase64(blob) {
   return new Promise(function(resolve) {
@@ -447,12 +449,12 @@ async function uploadPdfToGist(paperId, blob) {
       finalGistId = paper.pdfGistId;
       console.log("[pdf-sync] ✅ Updated existing PDF gist: " + finalGistId);
     } else {
-      // 创建新的 PUBLIC Gist（public=true 解决 raw_url CORS 问题）
+      // 创建新的私密 Gist（不出现在公开列表里，拿到链接才能读）
       var gist = await ghAPI("https://api.github.com/gists", {
         method: "POST",
         body: JSON.stringify({
           description: "FSI PDF: " + paperId,
-          public: true,
+          public: false,
           files: { "pdf.b64": { content: b64 } }
         })
       });
@@ -510,7 +512,7 @@ async function downloadPdfFromGist(paperId) {
 
       var b64;
       if (file.truncated) {
-        // 文件 >1MB（大多数 PDF），用 raw_url（public gist 无需认证）
+        // 文件 >1MB（大多数 PDF），用 raw_url（secret gist 的 raw_url 也无需认证、允许跨域）
         console.log("[pdf-sync] File truncated, fetching raw_url...");
         var resp = await fetch(file.raw_url, { cache: "no-store" });
         if (!resp.ok) { console.warn("[pdf-sync] raw_url HTTP " + resp.status); return null; }
@@ -1845,7 +1847,7 @@ async function submitAddWord() {
 
 // ==================== PDF 迁移（旧方案 → 新方案）====================
 // 自动检测旧方案的 PDF（存在主 Gist 里的 fsi_pdf_xxx.b64 文件），
-// 从本地 IndexedDB 读出来，重新上传到独立 public Gist，然后清理旧文件。
+// 从本地 IndexedDB 读出来，重新上传到独立私密 Gist，然后清理旧文件。
 async function migratePdfsToNewScheme() {
   if (!isGHConnected()) return;
   // 找出需要迁移的论文：有 hasPdf 但没有 pdfGistId
@@ -1867,13 +1869,13 @@ async function migratePdfsToNewScheme() {
 
       console.log("[pdf-migrate] Migrating: " + paper.title + " (" + (blob.size/1024/1024).toFixed(1) + " MB)");
 
-      // 上传到新的独立 public Gist
+      // 上传到新的独立私密 Gist
       var b64 = await _blobToBase64(blob);
       var gist = await ghAPI("https://api.github.com/gists", {
         method: "POST",
         body: JSON.stringify({
           description: "FSI PDF: " + paper.id,
-          public: true,
+          public: false,
           files: { "pdf.b64": { content: b64 } }
         })
       });

@@ -7,8 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>学术工具 · 论文阅读器</title>
-<link rel="stylesheet" href="shared/theme.css?v=1776466444">
-<link rel="stylesheet" href="shared/reader.css?v=1776466444">
+<link rel="stylesheet" href="shared/theme.css?v=1794500905">
+<link rel="stylesheet" href="shared/reader.css?v=1794500905">
 </head>
 <body>
 
@@ -136,13 +136,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="shared/utils.js?v=1776466444"></script>
-<script src="shared/sync.js?v=1776466444"></script>
-<script src="shared/pdf-viewer.js?v=1776466444"></script>
-<script src="shared/notes-panel.js?v=1776466444"></script>
-<script src="shared/folder-manager.js?v=1776466444"></script>
-<script src="shared/panel-manager.js?v=1776466444"></script>
-<script src="shared/close-reading.js?v=1776466444"></script>
+<script src="shared/utils.js?v=1794500905"></script>
+<script src="shared/sync.js?v=1794500905"></script>
+<script src="shared/pdf-viewer.js?v=1794500905"></script>
+<script src="shared/notes-panel.js?v=1794500905"></script>
+<script src="shared/folder-manager.js?v=1794500905"></script>
+<script src="shared/panel-manager.js?v=1794500905"></script>
+<script src="shared/close-reading.js?v=1794500905"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = "fsi_papers_data";
@@ -1084,37 +1084,56 @@ function renderSortFilterBar() {
   el.innerHTML = html;
 }
 
+// 拖拽排序：事件委托到父容器 #paperList，只绑一次。
+// （旧实现每次 renderPaperList 都给每个 .paper-item 绑 5 个 listener，100 papers × N 次重渲染 → 内存泄漏）
+var _paperDragSrcId = null;
+var _paperDragBound = false;
 function setupPaperDrag() {
-  let dragSrcId = null;
-  document.querySelectorAll(".paper-item[draggable]").forEach(item => {
-    item.addEventListener("dragstart", function(e) {
-      dragSrcId = this.dataset.paperId;
-      this.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", dragSrcId);
-    });
-    item.addEventListener("dragend", function() {
-      this.classList.remove("dragging");
-      document.querySelectorAll(".paper-item.drag-over").forEach(el => el.classList.remove("drag-over"));
-    });
-    item.addEventListener("dragover", function(e) {
-      e.preventDefault(); e.dataTransfer.dropEffect = "move";
-      this.classList.add("drag-over");
-    });
-    item.addEventListener("dragleave", function() { this.classList.remove("drag-over"); });
-    item.addEventListener("drop", function(e) {
-      e.preventDefault(); this.classList.remove("drag-over");
-      const targetId = this.dataset.paperId;
-      if (!dragSrcId || !targetId || dragSrcId === targetId) return;
-      const srcIdx = PAPERS.findIndex(p => p.id === dragSrcId);
-      const tgtIdx = PAPERS.findIndex(p => p.id === targetId);
-      if (srcIdx < 0 || tgtIdx < 0) return;
-      const moved = PAPERS.splice(srcIdx, 1)[0];
-      PAPERS.splice(tgtIdx, 0, moved);
-      savePapers(PAPERS); window._PAPERS_REF = PAPERS;
-      renderPaperList();
-      debouncedPush("论文排序");
-    });
+  if (_paperDragBound) return;
+  var list = document.getElementById("paperList");
+  if (!list) return;
+  _paperDragBound = true;
+
+  list.addEventListener("dragstart", function (e) {
+    var item = e.target && e.target.closest ? e.target.closest(".paper-item[draggable]") : null;
+    if (!item) return;
+    _paperDragSrcId = item.dataset.paperId;
+    item.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", _paperDragSrcId);
+  });
+  list.addEventListener("dragend", function (e) {
+    var item = e.target && e.target.closest ? e.target.closest(".paper-item[draggable]") : null;
+    if (item) item.classList.remove("dragging");
+    list.querySelectorAll(".paper-item.drag-over").forEach(function (el) { el.classList.remove("drag-over"); });
+    _paperDragSrcId = null; // 清空，避免 Esc 取消后留下脏状态
+  });
+  list.addEventListener("dragover", function (e) {
+    var item = e.target && e.target.closest ? e.target.closest(".paper-item[draggable]") : null;
+    if (!item) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    item.classList.add("drag-over");
+  });
+  list.addEventListener("dragleave", function (e) {
+    var item = e.target && e.target.closest ? e.target.closest(".paper-item[draggable]") : null;
+    if (item) item.classList.remove("drag-over");
+  });
+  list.addEventListener("drop", function (e) {
+    var item = e.target && e.target.closest ? e.target.closest(".paper-item[draggable]") : null;
+    if (!item) return;
+    e.preventDefault();
+    item.classList.remove("drag-over");
+    var targetId = item.dataset.paperId;
+    if (!_paperDragSrcId || !targetId || _paperDragSrcId === targetId) return;
+    var srcIdx = PAPERS.findIndex(function (p) { return p.id === _paperDragSrcId; });
+    var tgtIdx = PAPERS.findIndex(function (p) { return p.id === targetId; });
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    var moved = PAPERS.splice(srcIdx, 1)[0];
+    PAPERS.splice(tgtIdx, 0, moved);
+    savePapers(PAPERS); window._PAPERS_REF = PAPERS;
+    renderPaperList();
+    debouncedPush("论文排序");
   });
 }
 

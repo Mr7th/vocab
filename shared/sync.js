@@ -276,16 +276,44 @@ async function ghPollAndApply() {
 }
 
 let _heartbeatTimer = null;
+// ── 心跳空闲退避 ──
+// 用户活跃时（<2min 内有交互）30s 推一次；
+// 用户空闲时（≥2min 无交互）拉长到 5min 一次，减少 GitHub API 调用。
+const HEARTBEAT_ACTIVE_MS = 30000;   // 30s
+const HEARTBEAT_IDLE_MS   = 300000;  // 5min
+const IDLE_THRESHOLD_MS   = 120000;  // 2min
+let _lastInteractionAt = Date.now();
+let _heartbeatIntervalMs = HEARTBEAT_ACTIVE_MS; // 当前心跳间隔（随活跃状态切换）
+
+function _onUserInteraction() { _lastInteractionAt = Date.now(); }
+// 监听轻量级交互事件（passive，零代价）
+["mousedown", "keydown", "touchstart", "scroll"].forEach(function (ev) {
+  window.addEventListener(ev, _onUserInteraction, { passive: true });
+});
+
+function _scheduleHeartbeat() {
+  if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+  _heartbeatTimer = setInterval(function () {
+    var idle = Date.now() - _lastInteractionAt >= IDLE_THRESHOLD_MS;
+    var wantMs = idle ? HEARTBEAT_IDLE_MS : HEARTBEAT_ACTIVE_MS;
+    // 若活跃度切换 → 重排定时器避免用错间隔
+    if (wantMs !== _heartbeatIntervalMs) {
+      _heartbeatIntervalMs = wantMs;
+      _scheduleHeartbeat();
+      return;
+    }
+    _pushHeartbeat();
+  }, _heartbeatIntervalMs);
+}
 
 function startPolling() {
   if (_pollTimer || !isGHConnected()) return;
   ghPollAndApply();
   _pollTimer = setInterval(ghPollAndApply, 15000);
-  // 心跳：每 30s 推一次轻量心跳（仅更新 log 文件中的 heartbeat）
+  // 心跳：活跃 30s / 空闲 5min
   _pushHeartbeat(); // 立即发一次
-  if (!_heartbeatTimer) {
-    _heartbeatTimer = setInterval(_pushHeartbeat, 30000);
-  }
+  _heartbeatIntervalMs = HEARTBEAT_ACTIVE_MS;
+  _scheduleHeartbeat();
 }
 
 function stopPolling() {
@@ -318,7 +346,7 @@ document.addEventListener("visibilitychange", () => {
     stopPolling();
     // 兜底：如果有 pending 的 debouncedPush，立即 flush（避免切走后 3s 窗口没发出）
     if (_pushTimer) {
-      console.log("[sync] visibility hidden — flushing pending push");
+      dbg("[sync] visibility hidden — flushing pending push");
       clearTimeout(_pushTimer);
       _pushTimer = null;
       _doPushNow(null).catch(() => {});
@@ -331,7 +359,7 @@ document.addEventListener("visibilitychange", () => {
 // 关闭页面前 flush 任何挂起的 push（best-effort — 浏览器可能中断请求）
 window.addEventListener("beforeunload", () => {
   if (!isGHConnected() || !_pushTimer) return;
-  console.log("[sync] beforeunload — flushing pending push (best-effort)");
+  dbg("[sync] beforeunload — flushing pending push (best-effort)");
   clearTimeout(_pushTimer);
   _pushTimer = null;
   // Fire-and-forget；无法 await（beforeunload 不等 Promise）
@@ -795,7 +823,7 @@ async function _doPushNow(targetAppId) {
       _pushRetryCount = 0;
       return;
     }
-    console.log("[sync] push delayed: sync in progress (retry " + _pushRetryCount + ")");
+    dbg("[sync] push delayed: sync in progress (retry " + _pushRetryCount + ")");
     await new Promise(r => setTimeout(r, 2000));
     return _doPushNow(targetAppId);
   }
@@ -876,7 +904,7 @@ async function debouncedPushAll() {
         _pushRetryCount = 0;
         return;
       }
-      console.log("[sync] pushAll delayed: sync in progress (retry " + _pushRetryCount + ")");
+      dbg("[sync] pushAll delayed: sync in progress (retry " + _pushRetryCount + ")");
       setTimeout(() => debouncedPushAll(), 2000);
       return;
     }

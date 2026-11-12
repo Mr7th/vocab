@@ -48,12 +48,26 @@
 
   // ==================== API Layer ====================
   let _apiCache = {};
+  let _saveCacheTimer = null;
   function _loadCache() { try { const r = localStorage.getItem(CACHE_KEY); if (r) _apiCache = JSON.parse(r); } catch(e) { _apiCache = {}; } }
-  function _saveCache() {
+  /** 同步写入（真正执行落盘）。仅在 _scheduleSaveCache 到期或 beforeunload 时调用。 */
+  function _saveCacheNow() {
     const now = Date.now();
     for (const k of Object.keys(_apiCache)) { if (now - _apiCache[k].ts > CACHE_TTL * 2) delete _apiCache[k]; }
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(_apiCache)); } catch(e) { _apiCache = {}; }
   }
+  /** debounce 写入：批量请求只会在最后 1s 之后写一次，避免主线程多次同步阻塞。 */
+  function _saveCache() {
+    if (_saveCacheTimer) clearTimeout(_saveCacheTimer);
+    _saveCacheTimer = setTimeout(function () {
+      _saveCacheTimer = null;
+      _saveCacheNow();
+    }, 1000);
+  }
+  // 关闭页面前 flush 一次，避免 pending 的缓存丢失
+  window.addEventListener("beforeunload", function () {
+    if (_saveCacheTimer) { clearTimeout(_saveCacheTimer); _saveCacheTimer = null; _saveCacheNow(); }
+  });
 
   async function fetchOA(path, params) {
     const url = new URL(API_BASE + path);

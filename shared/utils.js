@@ -12,6 +12,39 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+/** 调试日志（受 localStorage["fsi_debug"]==="1" 控制）。
+ *  平时生产静默。排查问题时在控制台输入：
+ *    localStorage.setItem("fsi_debug","1"); location.reload();
+ *  即可看到所有 dbg/dbgWarn 输出。 */
+var _FSI_DEBUG = (function () {
+  try { return localStorage.getItem("fsi_debug") === "1"; } catch (e) { return false; }
+})();
+function dbg() { if (_FSI_DEBUG) console.log.apply(console, arguments); }
+function dbgWarn() { if (_FSI_DEBUG) console.warn.apply(console, arguments); }
+
+/** 安全读取 JSON；解析失败或不存在时返回 fallback */
+function safeLoadJSON(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  } catch (e) {
+    dbgWarn("[safeLoadJSON] corrupt key=" + key, e);
+    return fallback;
+  }
+}
+
+/** 安全写入 JSON；写失败（通常是配额）不抛 */
+function safeSaveJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    dbgWarn("[safeSaveJSON] write failed key=" + key, e);
+    return false;
+  }
+}
+
 /** 格式化时间戳 */
 function formatTime(ts) {
   return ts ? new Date(ts).toLocaleString("zh-CN") : "";

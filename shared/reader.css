@@ -428,12 +428,13 @@ body { height: 100vh; overflow: hidden; }
 /* ====== Sort/Filter bar ====== */
 #sortFilterBar { padding: 4px 14px 6px; }
 .sf-tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 12px; }
-.sf-tag-chip { font-size: 11px; color: #a78bfa; background: #1e1040; border: 1px solid #3b2070; border-radius: 6px; padding: 3px 9px; cursor: pointer; transition: all 0.15s; user-select: none; }
+.sf-tag-chip { display: inline-flex; align-items: center; white-space: nowrap; font-size: 11px; color: #a78bfa; background: #1e1040; border: 1px solid #3b2070; border-radius: 6px; padding: 3px 9px; cursor: pointer; transition: all 0.15s; user-select: none; }
 .sf-tag-chip:hover { border-color: #a78bfa; background: #2e1065; }
 .sf-tag-chip.active { background: #5b21b6; border-color: #7c3aed; color: #f5f3ff; font-weight: 600; }
 .sf-tag-chip small { font-size: 10px; opacity: 0.6; margin-left: 2px; }
-.sf-tag-del { display: none; margin-left: 4px; padding: 0 3px; font-size: 10px; color: #fca5a5; opacity: 0.7; border-radius: 3px; }
-.sf-tag-chip:hover .sf-tag-del { display: inline; }
+.sf-tag-del { display: inline-block; visibility: hidden; margin-left: 4px; padding: 0 3px; font-size: 10px; color: #fca5a5; opacity: 0.7; border-radius: 3px; }
+.sf-tag-chip:hover .sf-tag-del, .sf-tag-chip:focus-within .sf-tag-del { visibility: visible; }
+@media (hover: none) { .sf-tag-del { visibility: visible; } }
 .sf-tag-del:hover { opacity: 1; background: #7f1d1d; color: #fee2e2; }
 .sf-tag-clear { font-size: 11px; color: #ef4444; cursor: pointer; padding: 3px 8px; border-radius: 6px; border: 1px solid #7f1d1d; background: #1c0a0a; transition: all 0.15s; }
 .sf-tag-clear:hover { background: #7f1d1d; color: #fca5a5; }
